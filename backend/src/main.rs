@@ -1,12 +1,13 @@
 use clap::Parser;
+use colored::*;
 use model::{Task, TaskStatus};
 use std::collections::HashMap;
 use std::fs;
 use walkdir::{DirEntry, WalkDir};
 
 mod model {
-    // use colored::*;
-    use std::str::FromStr;
+    use colored::*;
+    use std::{fmt::format, str::FromStr};
 
     use regex::Regex;
     #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
@@ -116,7 +117,24 @@ mod model {
     }
     impl std::fmt::Display for Task {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            self.description.fmt(f)
+            let no_context = self
+                .contexts
+                .iter()
+                .fold(self.description.clone(), |desc: String, c: &String| {
+                    desc.replace(c, "")
+                });
+            let context_with_color = self
+                .contexts
+                .iter()
+                .fold(no_context, |desc: String, c: &String| {
+                    format!("{} {}", desc, c.blue())
+                });
+
+            Regex::new(r"\s+")
+                .unwrap()
+                .replace_all(&context_with_color, " ")
+                .to_string()
+                .fmt(f)
         }
     }
 }
@@ -221,12 +239,13 @@ fn main() {
         .collect();
 
     for proj in projects {
-        println!("---------- {} ----------", proj.file_name);
+        let proj_line = format!("-- {} --", proj.file_name);
+        println!("{}", proj_line.on_blue());
         for status in TaskStatus::all() {
             if !proj.tasks.contains_key(&status) {
                 continue;
             }
-            println!("{}", status);
+            println!("{}", status.to_string().dimmed());
             for task in proj.tasks.get(&status).unwrap() {
                 println!("{}", task)
             }
