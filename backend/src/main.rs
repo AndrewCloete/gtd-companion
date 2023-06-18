@@ -21,6 +21,13 @@ mod model {
         fn re_status() -> Regex {
             Regex::new(r"(@todo|@wip|@review)").unwrap()
         }
+        pub fn remove_status_str(task: &str) -> String {
+            let noStatus = TaskStatus::re_status().replace_all(task, "").to_string();
+            Regex::new(r"\s+")
+                .unwrap()
+                .replace_all(&noStatus, " ")
+                .to_string()
+        }
         pub fn classify(task: &str) -> TaskStatus {
             let status_str: Option<&str> = TaskStatus::re_status()
                 .captures(task)
@@ -83,11 +90,20 @@ mod model {
                 .collect()
         }
 
+        // fn color_context(task: &str) -> String {
+        //     let noStatus = Task::re_context().replace(task, ).to_string();
+        //     Regex::new(r"\s+").unwrap().replace_all(&noStatus, " ").to_string()
+        // }
+
         pub fn new(task: &str) -> Task {
+            let status = TaskStatus::classify(task);
+            let contexts = Task::extract_contexts(task);
+            let description = TaskStatus::remove_status_str(&task);
+
             Task {
-                description: task.to_string(),
-                status: TaskStatus::classify(task),
-                contexts: Task::extract_contexts(task),
+                description,
+                status,
+                contexts,
             }
         }
 
