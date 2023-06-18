@@ -5,7 +5,7 @@ use std::fs;
 use walkdir::{DirEntry, WalkDir};
 
 mod model {
-    use colored::*;
+    // use colored::*;
     use std::str::FromStr;
 
     use regex::Regex;
@@ -22,10 +22,10 @@ mod model {
             Regex::new(r"(@todo|@wip|@review)").unwrap()
         }
         pub fn remove_status_str(task: &str) -> String {
-            let noStatus = TaskStatus::re_status().replace_all(task, "").to_string();
+            let no_status = TaskStatus::re_status().replace_all(task, "").to_string();
             Regex::new(r"\s+")
                 .unwrap()
-                .replace_all(&noStatus, " ")
+                .replace_all(&no_status, " ")
                 .to_string()
         }
         pub fn classify(task: &str) -> TaskStatus {
@@ -79,6 +79,9 @@ mod model {
         pub contexts: Vec<String>,
     }
     impl Task {
+        pub fn re_any() -> Regex {
+            Regex::new(r"(#x[A-Za-z0-9]{1,})|@todo|@wip|@review").unwrap()
+        }
         fn re_context() -> Regex {
             Regex::new(r"(#x[A-Za-z0-9]{1,})+").unwrap()
         }
@@ -135,17 +138,23 @@ struct Args {
     context: Option<String>,
 }
 
-fn split_param(param: Option<String>) -> Vec<String> {
-    param
-        .map(|status| status.split(",").map(|s| s.to_string()).collect())
-        .unwrap_or(vec![])
-}
 impl Args {
-    pub fn statuses(&self) -> Vec<String> {
-        split_param(self.status.clone())
+    pub fn statuses(&self) -> Vec<TaskStatus> {
+        self.status
+            .clone()
+            .map(|status| {
+                status
+                    .split(",")
+                    .map(|s| TaskStatus::classify(&format!("@{}", s)))
+                    .collect()
+            })
+            .unwrap_or(vec![])
     }
     pub fn contexts(&self) -> Vec<String> {
-        split_param(self.status.clone())
+        self.context
+            .clone()
+            .map(|status| status.split(",").map(|s| format!("#x{}", s)).collect())
+            .unwrap_or(vec![])
     }
 }
 
@@ -174,15 +183,22 @@ fn main() {
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file());
 
+    let re = Task::re_any();
+
     let projects: Vec<Project> = file_paths
         .flat_map(|file_path| {
             let tasks = fs::read_to_string(&file_path.path())
-                .unwrap()
+                .unwrap_or("".to_string())
                 .lines()
                 .map(|line| String::from(line))
                 .filter(|line| line.starts_with("- ") || line.starts_with("* "))
+                .filter(|line| re.is_match(line))
                 .map(|line| model::Task::new(&line))
                 .filter(|task| !task.has_noflags())
+                .filter(|task| statuses.is_empty() || statuses.contains(&task.status))
+                .filter(|task| {
+                    contexts.is_empty() || task.contexts.iter().any(|c| contexts.contains(c))
+                })
                 .collect::<Vec<Task>>();
             if tasks.is_empty() {
                 return None;
