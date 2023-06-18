@@ -40,11 +40,20 @@ mod model {
         }
         pub fn all() -> Vec<TaskStatus> {
             return vec![
-                TaskStatus::Todo,
                 TaskStatus::Wip,
                 TaskStatus::Review,
+                TaskStatus::Todo,
                 TaskStatus::NoStatus,
             ];
+        }
+
+        pub fn to_color_str(&self) -> ColoredString {
+            match self {
+                TaskStatus::NoStatus => self.to_string().black(),
+                TaskStatus::Todo => self.to_string().green(),
+                TaskStatus::Wip => self.to_string().red(),
+                TaskStatus::Review => self.to_string().yellow(),
+            }
         }
     }
 
@@ -245,7 +254,7 @@ fn main() {
             if !proj.tasks.contains_key(&status) {
                 continue;
             }
-            println!("{}", status.to_string().dimmed());
+            println!("{}", status.to_color_str().dimmed());
             for task in proj.tasks.get(&status).unwrap() {
                 println!("{}", task)
             }
