@@ -1,12 +1,15 @@
 use clap::Parser;
-use model::TaskStatus;
-use regex::Regex;
+use model::{Task, TaskStatus};
 use std::collections::HashMap;
 use std::fs;
 use walkdir::{DirEntry, WalkDir};
 
 mod model {
-    #[derive(Copy, Clone, PartialEq, Eq, Debug)]
+    use colored::*;
+    use std::str::FromStr;
+
+    use regex::Regex;
+    #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
     pub enum TaskStatus {
         NoStatus,
         Todo,
@@ -15,24 +18,24 @@ mod model {
     }
 
     impl TaskStatus {
-        pub fn classify(task: &String) -> TaskStatus {
-            if task.contains("@todo") {
-                return TaskStatus::Todo;
-            }
-            if task.contains("@wip") {
-                return TaskStatus::Wip;
-            }
-            if task.contains("@review") {
-                return TaskStatus::Review;
-            }
-            return TaskStatus::NoStatus;
+        fn re_status() -> Regex {
+            Regex::new(r"(@todo|@wip|@review)").unwrap()
         }
+        pub fn classify(task: &str) -> TaskStatus {
+            let status_str: Option<&str> = TaskStatus::re_status()
+                .captures(task)
+                .map(|cap| cap.get(0).unwrap().as_str());
 
-        pub fn get_list() -> Vec<String> {
+            status_str
+                .map(|s| TaskStatus::from_str(s).unwrap())
+                .unwrap_or(TaskStatus::NoStatus)
+        }
+        pub fn all() -> Vec<TaskStatus> {
             return vec![
-                "@todo".to_string(),
-                "@wip".to_string(),
-                "@review".to_string(),
+                TaskStatus::Todo,
+                TaskStatus::Wip,
+                TaskStatus::Review,
+                TaskStatus::NoStatus,
             ];
         }
     }
@@ -61,6 +64,42 @@ mod model {
             }
         }
     }
+
+    #[derive(Clone, PartialEq, Eq, Debug, Hash)]
+    pub struct Task {
+        description: String,
+        pub status: TaskStatus,
+        pub contexts: Vec<String>,
+    }
+    impl Task {
+        fn re_context() -> Regex {
+            Regex::new(r"(#x[A-Za-z0-9]{1,})+").unwrap()
+        }
+
+        fn extract_contexts(task: &str) -> Vec<String> {
+            Task::re_context()
+                .captures_iter(task)
+                .map(|c| c.get(0).unwrap().as_str().into())
+                .collect()
+        }
+
+        pub fn new(task: &str) -> Task {
+            Task {
+                description: task.to_string(),
+                status: TaskStatus::classify(task),
+                contexts: Task::extract_contexts(task),
+            }
+        }
+
+        pub fn has_noflags(&self) -> bool {
+            self.contexts.is_empty() && self.status == TaskStatus::NoStatus
+        }
+    }
+    impl std::fmt::Display for Task {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            self.description.fmt(f)
+        }
+    }
 }
 
 /// Turns a text-based knowledge base into a GTD system
@@ -73,11 +112,25 @@ struct Args {
 
     /// Task status todo, wip, or review
     #[arg(short, long)]
-    status: Option<model::TaskStatus>,
+    status: Option<String>,
 
-    /// Number of times to greet
-    #[arg(short, long, default_value_t = 1)]
-    count: u8,
+    /// Task context
+    #[arg(short, long)]
+    context: Option<String>,
+}
+
+fn split_param(param: Option<String>) -> Vec<String> {
+    param
+        .map(|status| status.split(",").map(|s| s.to_string()).collect())
+        .unwrap_or(vec![])
+}
+impl Args {
+    pub fn statuses(&self) -> Vec<String> {
+        split_param(self.status.clone())
+    }
+    pub fn contexts(&self) -> Vec<String> {
+        split_param(self.status.clone())
+    }
 }
 
 fn is_hidden(entry: &DirEntry) -> bool {
@@ -91,17 +144,14 @@ fn is_hidden(entry: &DirEntry) -> bool {
 #[derive(Debug)]
 struct Project {
     file_name: String,
-    tasks: HashMap<String, Vec<String>>,
+    tasks: HashMap<TaskStatus, Vec<Task>>,
 }
 
 fn main() {
     let args = Args::parse();
+    let statuses = args.statuses();
+    let contexts = args.contexts();
 
-    let re_context = Regex::new(r"(#x[A-Za-z0-9]{1,})|@todo|@wip|@review").unwrap();
-
-    for _ in 0..args.count {
-        println!("Hello {}!", args.dir.display())
-    }
     let file_paths = WalkDir::new(args.dir.as_path())
         .into_iter()
         .filter_entry(|e| !is_hidden(e))
@@ -115,19 +165,19 @@ fn main() {
                 .lines()
                 .map(|line| String::from(line))
                 .filter(|line| line.starts_with("- ") || line.starts_with("* "))
-                .filter(|line| re_context.is_match(line))
-                .collect::<Vec<String>>();
+                .map(|line| model::Task::new(&line))
+                .filter(|task| !task.has_noflags())
+                .collect::<Vec<Task>>();
             if tasks.is_empty() {
                 return None;
             }
 
             let grouped_tasks = tasks.iter().fold(
                 HashMap::new(),
-                |mut map: HashMap<String, Vec<String>>, task| {
-                    let status = TaskStatus::classify(task).to_string();
-                    let mut value: Vec<String> = map.get(&status).unwrap_or(&vec![]).to_vec();
-                    value.push(task.to_string());
-                    map.insert(status, value);
+                |mut map: HashMap<TaskStatus, Vec<Task>>, task| {
+                    let mut value: Vec<Task> = map.get(&task.status).unwrap_or(&vec![]).to_vec();
+                    value.push(task.clone());
+                    map.insert(task.status, value);
                     map
                 },
             );
@@ -140,12 +190,12 @@ fn main() {
 
     for proj in projects {
         println!("---------- {} ----------", proj.file_name);
-        for status in TaskStatus::get_list().iter() {
-            if !proj.tasks.contains_key(status) {
+        for status in TaskStatus::all() {
+            if !proj.tasks.contains_key(&status) {
                 continue;
             }
             println!("{}", status);
-            for task in proj.tasks.get(status).unwrap() {
+            for task in proj.tasks.get(&status).unwrap() {
                 println!("{}", task)
             }
             println!()
