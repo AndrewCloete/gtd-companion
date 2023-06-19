@@ -7,7 +7,7 @@ use walkdir::{DirEntry, WalkDir};
 
 mod model {
     use colored::*;
-    use std::{fmt::format, str::FromStr};
+    use std::str::FromStr;
 
     use regex::Regex;
     #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
@@ -258,7 +258,6 @@ fn main() {
             for task in proj.tasks.get(&status).unwrap() {
                 println!("{}", task)
             }
-            println!()
         }
         println!()
     }
