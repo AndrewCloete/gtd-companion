@@ -108,7 +108,7 @@ mod model {
         //     Regex::new(r"\s+").unwrap().replace_all(&noStatus, " ").to_string()
         // }
 
-        pub fn new(task: &str) -> Task {
+        pub fn from(task: &str) -> Task {
             let status = TaskStatus::classify(task);
             let contexts = Task::extract_contexts(task);
             let description = TaskStatus::remove_status_str(&task);
@@ -214,13 +214,47 @@ fn main() {
 
     let projects: Vec<Project> = file_paths
         .flat_map(|file_path| {
-            let tasks = fs::read_to_string(&file_path.path())
-                .unwrap_or("".to_string())
+            let file_content = fs::read_to_string(&file_path.path()).unwrap_or("".to_string());
+
+            let task_lines = file_content
                 .lines()
                 .map(|line| String::from(line))
                 .filter(|line| line.starts_with("- ") || line.starts_with("* "))
-                .filter(|line| re.is_match(line))
-                .map(|line| model::Task::new(&line))
+                .filter(|line| re.is_match(line));
+
+            // let task_line_folded = task_lines.fold((vec![], vec![], vec![]), |mut acc: (Vec<Task>, Vec<TaskStatus>, Vec<String>, task: &Task)| {})
+            let mut wrap_status: Option<TaskStatus> = None;
+            let mut wrap_context: Vec<String> = vec![];
+            let mut flattened_tasks: Vec<Task> = vec![];
+            for line in task_lines {
+                // Start a wrap block
+                if line.starts_with("- {{") || line.starts_with("* {{") {
+                    let task = Task::from(&line);
+                    wrap_status = Some(task.status);
+                    wrap_context = task.contexts;
+                    continue;
+                }
+                // End wrap block
+                if line.starts_with("- }}") || line.starts_with("* }}") {
+                    wrap_status = None;
+                    wrap_context = vec![];
+                    continue;
+                }
+                // Add the wrapping items onto each line in the wrap
+                // TODO: Don't do this directly on the string
+                let line_with_wrap = line;
+                // + &format!(
+                //     " {} {}",
+                //     wrap_status
+                //         .map(|t| t.to_string())
+                //         .get_or_insert("".to_string()),
+                //     &wrap_context.join(" ")
+                // );
+                flattened_tasks.push(Task::from(&line_with_wrap))
+            }
+
+            let tasks: Vec<Task> = flattened_tasks
+                .into_iter()
                 .filter(|task| !task.has_noflags())
                 .filter(|task| statuses.is_empty() || statuses.contains(&task.status))
                 .filter(|task| {
