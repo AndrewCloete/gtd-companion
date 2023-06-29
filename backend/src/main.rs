@@ -1,152 +1,13 @@
 use clap::Parser;
 use colored::*;
 use model::{Task, TaskStatus};
+use serde::Deserialize;
 use std::collections::HashMap;
+use std::env::var;
 use std::fs;
 use walkdir::{DirEntry, WalkDir};
 
-mod model {
-    use colored::*;
-    use std::str::FromStr;
-
-    use regex::Regex;
-    #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
-    pub enum TaskStatus {
-        NoStatus,
-        Todo,
-        Wip,
-        Review,
-    }
-
-    impl TaskStatus {
-        fn re_status() -> Regex {
-            Regex::new(r"(@todo|@wip|@review)").unwrap()
-        }
-        pub fn remove_status_str(task: &str) -> String {
-            let no_status = TaskStatus::re_status().replace_all(task, "").to_string();
-            Regex::new(r"\s+")
-                .unwrap()
-                .replace_all(&no_status, " ")
-                .to_string()
-        }
-        pub fn classify(task: &str) -> TaskStatus {
-            let status_str: Option<&str> = TaskStatus::re_status()
-                .captures(task)
-                .map(|cap| cap.get(0).unwrap().as_str());
-
-            status_str
-                .map(|s| TaskStatus::from_str(s).unwrap())
-                .unwrap_or(TaskStatus::NoStatus)
-        }
-        pub fn all() -> Vec<TaskStatus> {
-            return vec![
-                TaskStatus::Wip,
-                TaskStatus::Review,
-                TaskStatus::Todo,
-                TaskStatus::NoStatus,
-            ];
-        }
-
-        pub fn to_color_str(&self) -> ColoredString {
-            match self {
-                TaskStatus::NoStatus => self.to_string().black(),
-                TaskStatus::Todo => self.to_string().green(),
-                TaskStatus::Wip => self.to_string().red(),
-                TaskStatus::Review => self.to_string().yellow(),
-            }
-        }
-    }
-
-    impl std::fmt::Display for TaskStatus {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            let s = match self {
-                Self::Todo => "@todo",
-                Self::Wip => "@wip",
-                Self::Review => "@review",
-                Self::NoStatus => "@noStatus",
-            };
-            s.fmt(f)
-        }
-    }
-    impl std::str::FromStr for TaskStatus {
-        type Err = String;
-
-        fn from_str(s: &str) -> Result<Self, Self::Err> {
-            match s {
-                "@todo" => Ok(Self::Todo),
-                "@wip" => Ok(Self::Wip),
-                "@review" => Ok(Self::Review),
-                "@noStatus" => Ok(Self::NoStatus),
-                _ => Err(format!("Unknown status: {s}")),
-            }
-        }
-    }
-
-    #[derive(Clone, PartialEq, Eq, Debug, Hash)]
-    pub struct Task {
-        description: String,
-        pub status: TaskStatus,
-        pub contexts: Vec<String>,
-    }
-    impl Task {
-        pub fn re_any() -> Regex {
-            Regex::new(r"(#x[A-Za-z0-9]{1,})|@todo|@wip|@review").unwrap()
-        }
-        fn re_context() -> Regex {
-            Regex::new(r"(#x[A-Za-z0-9]{1,})+").unwrap()
-        }
-
-        fn extract_contexts(task: &str) -> Vec<String> {
-            Task::re_context()
-                .captures_iter(task)
-                .map(|c| c.get(0).unwrap().as_str().into())
-                .collect()
-        }
-
-        // fn color_context(task: &str) -> String {
-        //     let noStatus = Task::re_context().replace(task, ).to_string();
-        //     Regex::new(r"\s+").unwrap().replace_all(&noStatus, " ").to_string()
-        // }
-
-        pub fn from(task: &str) -> Task {
-            let status = TaskStatus::classify(task);
-            let contexts = Task::extract_contexts(task);
-            let description = TaskStatus::remove_status_str(&task);
-
-            Task {
-                description,
-                status,
-                contexts,
-            }
-        }
-
-        pub fn has_noflags(&self) -> bool {
-            self.contexts.is_empty() && self.status == TaskStatus::NoStatus
-        }
-    }
-    impl std::fmt::Display for Task {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            let no_context = self
-                .contexts
-                .iter()
-                .fold(self.description.clone(), |desc: String, c: &String| {
-                    desc.replace(c, "")
-                });
-            let context_with_color = self
-                .contexts
-                .iter()
-                .fold(no_context, |desc: String, c: &String| {
-                    format!("{} {}", desc, c.blue())
-                });
-
-            Regex::new(r"\s+")
-                .unwrap()
-                .replace_all(&context_with_color, " ")
-                .to_string()
-                .fmt(f)
-        }
-    }
-}
+pub mod model;
 
 /// Turns a text-based knowledge base into a GTD system
 #[derive(Parser, Debug)]
@@ -160,14 +21,22 @@ struct Args {
     #[arg(short, long)]
     status: Option<String>,
 
+    /// Not task status todo, wip, or review
+    #[arg(short = 'S', long)]
+    not_status: Option<String>,
+
     /// Task context
     #[arg(short, long)]
     context: Option<String>,
+
+    /// Not Task context
+    #[arg(short = 'C', long)]
+    not_context: Option<String>,
 }
 
 impl Args {
-    pub fn statuses(&self) -> Vec<TaskStatus> {
-        self.status
+    pub fn parse_status_arg(status: &Option<String>) -> Vec<TaskStatus> {
+        status
             .clone()
             .map(|status| {
                 status
@@ -177,11 +46,27 @@ impl Args {
             })
             .unwrap_or(vec![])
     }
-    pub fn contexts(&self) -> Vec<String> {
-        self.context
+    pub fn statuses(&self) -> Vec<TaskStatus> {
+        Args::parse_status_arg(&self.status)
+    }
+
+    pub fn not_statuses(&self) -> Vec<TaskStatus> {
+        Args::parse_status_arg(&self.not_status)
+    }
+
+    pub fn parse_context_arg(context: &Option<String>) -> Vec<String> {
+        context
             .clone()
             .map(|status| status.split(",").map(|s| format!("#x{}", s)).collect())
             .unwrap_or(vec![])
+    }
+
+    pub fn contexts(&self) -> Vec<String> {
+        Args::parse_context_arg(&self.context)
+    }
+
+    pub fn not_context(&self) -> Vec<String> {
+        Args::parse_context_arg(&self.not_context)
     }
 }
 
@@ -193,6 +78,21 @@ fn is_hidden(entry: &DirEntry) -> bool {
         .unwrap_or(false)
 }
 
+#[derive(Debug, Deserialize, Clone)]
+struct ConfigFile {
+    ignore_files: Option<Vec<String>>,
+    default_not_context: Option<Vec<String>>,
+}
+
+impl ConfigFile {
+    fn new() -> ConfigFile {
+        return ConfigFile {
+            ignore_files: None,
+            default_not_context: None,
+        };
+    }
+}
+
 #[derive(Debug)]
 struct Project {
     file_name: String,
@@ -201,14 +101,27 @@ struct Project {
 
 fn main() {
     let args = Args::parse();
+    let home_path = var("HOME").expect("$HOME not defined");
+    let config = match fs::read_to_string(format!("{}/.gtd.json", home_path)) {
+        Err(_) => ConfigFile::new(),
+        Ok(content) => serde_json::from_str(&content).expect("Config was not well formatted"),
+    };
+    println!("{:?}", config);
+
     let statuses = args.statuses();
     let contexts = args.contexts();
+    let ignore_files = config.ignore_files.unwrap_or(vec![]);
+    let default_not_context = match contexts.len() {
+        0 => config.default_not_context.unwrap_or(vec![]),
+        _ => vec![],
+    };
 
     let file_paths = WalkDir::new(args.dir.as_path())
         .into_iter()
         .filter_entry(|e| !is_hidden(e))
         .filter_map(|e| e.ok())
-        .filter(|e| e.file_type().is_file());
+        .filter(|e| e.file_type().is_file())
+        .filter(|e| !ignore_files.contains(&e.file_name().to_str().unwrap_or("").to_string()));
 
     let re = Task::re_any();
 
@@ -222,43 +135,19 @@ fn main() {
                 .filter(|line| line.starts_with("- ") || line.starts_with("* "))
                 .filter(|line| re.is_match(line));
 
-            // let task_line_folded = task_lines.fold((vec![], vec![], vec![]), |mut acc: (Vec<Task>, Vec<TaskStatus>, Vec<String>, task: &Task)| {})
-            let mut wrap_status: Option<TaskStatus> = None;
-            let mut wrap_context: Vec<String> = vec![];
-            let mut flattened_tasks: Vec<Task> = vec![];
-            for line in task_lines {
-                // Start a wrap block
-                if line.starts_with("- {{") || line.starts_with("* {{") {
-                    let task = Task::from(&line);
-                    wrap_status = Some(task.status);
-                    wrap_context = task.contexts;
-                    continue;
-                }
-                // End wrap block
-                if line.starts_with("- }}") || line.starts_with("* }}") {
-                    wrap_status = None;
-                    wrap_context = vec![];
-                    continue;
-                }
-                // Add the wrapping items onto each line in the wrap
-                // TODO: Don't do this directly on the string
-                let line_with_wrap = line;
-                // + &format!(
-                //     " {} {}",
-                //     wrap_status
-                //         .map(|t| t.to_string())
-                //         .get_or_insert("".to_string()),
-                //     &wrap_context.join(" ")
-                // );
-                flattened_tasks.push(Task::from(&line_with_wrap))
-            }
-
-            let tasks: Vec<Task> = flattened_tasks
-                .into_iter()
+            let tasks: Vec<Task> = task_lines
+                .map(|l| Task::from(&l))
                 .filter(|task| !task.has_noflags())
                 .filter(|task| statuses.is_empty() || statuses.contains(&task.status))
                 .filter(|task| {
                     contexts.is_empty() || task.contexts.iter().any(|c| contexts.contains(c))
+                })
+                .filter(|task| {
+                    !(task
+                        .contexts
+                        .iter()
+                        .any(|c| default_not_context.contains(c))
+                        & task.status.eq(&TaskStatus::NoStatus))
                 })
                 .collect::<Vec<Task>>();
             if tasks.is_empty() {
