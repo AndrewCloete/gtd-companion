@@ -135,8 +135,7 @@ fn main() {
             let task_lines = file_content
                 .lines()
                 .map(|line| String::from(line))
-                .filter(|line| line.starts_with("- ") || line.starts_with("* "))
-                .filter(|line| re.is_match(line));
+                .filter(|line| line.starts_with("- ") || line.starts_with("* "));
 
             let tasks: Vec<Task> = if always_files
                 .clone()
@@ -149,6 +148,7 @@ fn main() {
                 task_lines.map(|l| Task::from(&l)).collect::<Vec<Task>>()
             } else {
                 task_lines
+                    .filter(|line| re.is_match(line))
                     .map(|l| Task::from(&l))
                     .filter(|task| !task.has_noflags())
                     .filter(|task| statuses.is_empty() || statuses.contains(&task.status))
