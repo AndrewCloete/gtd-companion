@@ -15,7 +15,7 @@ pub mod model;
 struct Args {
     /// Root directory of the knowledge base
     #[arg(short, long, value_hint = clap::ValueHint::DirPath)]
-    dir: std::path::PathBuf,
+    dir: Option<std::path::PathBuf>,
 
     /// Task status todo, wip, or review
     #[arg(short, long)]
@@ -80,6 +80,7 @@ fn is_hidden(entry: &DirEntry) -> bool {
 
 #[derive(Debug, Deserialize, Clone)]
 struct ConfigFile {
+    default_dirs: Option<Vec<std::path::PathBuf>>,
     ignore_files: Option<Vec<String>>,
     always_files: Option<Vec<String>>,
     default_not_context: Option<Vec<String>>,
@@ -88,6 +89,7 @@ struct ConfigFile {
 impl ConfigFile {
     fn new() -> ConfigFile {
         return ConfigFile {
+            default_dirs: None,
             always_files: None,
             ignore_files: None,
             default_not_context: None,
@@ -114,17 +116,24 @@ fn main() {
     let contexts = args.contexts();
     let ignore_files = config.ignore_files.unwrap_or(vec![]);
     let always_files = config.always_files;
+    let dirs = args
+        .dir
+        .map(|d| vec![d])
+        .unwrap_or(config.default_dirs.unwrap_or(vec![]));
+    println!("{:?}", dirs);
     let default_not_context = match contexts.len() {
         0 => config.default_not_context.unwrap_or(vec![]),
         _ => vec![],
     };
 
-    let file_paths = WalkDir::new(args.dir.as_path())
-        .into_iter()
-        .filter_entry(|e| !is_hidden(e))
-        .filter_map(|e| e.ok())
-        .filter(|e| e.file_type().is_file())
-        .filter(|e| !ignore_files.contains(&e.file_name().to_str().unwrap_or("").to_string()));
+    let file_paths = dirs.iter().flat_map(|dir| {
+        WalkDir::new(dir.as_path())
+            .into_iter()
+            .filter_entry(|e| !is_hidden(e))
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_type().is_file())
+            .filter(|e| !ignore_files.contains(&e.file_name().to_str().unwrap_or("").to_string()))
+    });
 
     let re = Task::re_any();
 
