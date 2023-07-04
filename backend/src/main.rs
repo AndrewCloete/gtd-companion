@@ -81,12 +81,14 @@ fn is_hidden(entry: &DirEntry) -> bool {
 #[derive(Debug, Deserialize, Clone)]
 struct ConfigFile {
     ignore_files: Option<Vec<String>>,
+    always_files: Option<Vec<String>>,
     default_not_context: Option<Vec<String>>,
 }
 
 impl ConfigFile {
     fn new() -> ConfigFile {
         return ConfigFile {
+            always_files: None,
             ignore_files: None,
             default_not_context: None,
         };
@@ -111,6 +113,7 @@ fn main() {
     let statuses = args.statuses();
     let contexts = args.contexts();
     let ignore_files = config.ignore_files.unwrap_or(vec![]);
+    let always_files = config.always_files;
     let default_not_context = match contexts.len() {
         0 => config.default_not_context.unwrap_or(vec![]),
         _ => vec![],
@@ -135,21 +138,33 @@ fn main() {
                 .filter(|line| line.starts_with("- ") || line.starts_with("* "))
                 .filter(|line| re.is_match(line));
 
-            let tasks: Vec<Task> = task_lines
-                .map(|l| Task::from(&l))
-                .filter(|task| !task.has_noflags())
-                .filter(|task| statuses.is_empty() || statuses.contains(&task.status))
-                .filter(|task| {
-                    contexts.is_empty() || task.contexts.iter().any(|c| contexts.contains(c))
+            let tasks: Vec<Task> = if always_files
+                .clone()
+                .map(|af| {
+                    af.iter()
+                        .any(|f| file_path.path().to_str().unwrap().contains(f))
                 })
-                .filter(|task| {
-                    !(task
-                        .contexts
-                        .iter()
-                        .any(|c| default_not_context.contains(c))
-                        & task.status.eq(&TaskStatus::NoStatus))
-                })
-                .collect::<Vec<Task>>();
+                .unwrap_or(false)
+            {
+                task_lines.map(|l| Task::from(&l)).collect::<Vec<Task>>()
+            } else {
+                task_lines
+                    .map(|l| Task::from(&l))
+                    .filter(|task| !task.has_noflags())
+                    .filter(|task| statuses.is_empty() || statuses.contains(&task.status))
+                    .filter(|task| {
+                        contexts.is_empty() || task.contexts.iter().any(|c| contexts.contains(c))
+                    })
+                    .filter(|task| {
+                        !(task
+                            .contexts
+                            .iter()
+                            .any(|c| default_not_context.contains(c))
+                            & task.status.eq(&TaskStatus::NoStatus))
+                    })
+                    .collect::<Vec<Task>>()
+            };
+
             if tasks.is_empty() {
                 return None;
             }
