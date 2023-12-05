@@ -120,10 +120,28 @@ fn display_projects(projects: Vec<Project>) {
     }
 }
 
+fn pivot_on_context(projects: Vec<Project>) {
+    let mut tasks_flat: Vec<(String, Task)> = projects
+        .iter()
+        .flat_map(|p| {
+            p.tasks
+                .iter()
+                .flat_map(|t| 
+                    t.1
+                    .iter()
+                    .map(|task| 
+                        (p.file_name, task.clone())
+                    )
+                )
+        })
+        .collect();
+}
+
 fn main() {
+    let default_config_name = ".gtd.test.json";
     let args = Args::parse();
     let home_path = var("HOME").expect("$HOME not defined");
-    let config = match fs::read_to_string(format!("{}/.gtd.json", home_path)) {
+    let config = match fs::read_to_string(format!("{}/{}", home_path, default_config_name)) {
         Err(_) => ConfigFile::new(),
         Ok(content) => serde_json::from_str(&content).expect("Config was not well formatted"),
     };

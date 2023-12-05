@@ -37,7 +37,12 @@ Mood
 - Xwalk: Podcasts, reading to do while walking
 
 ## Local testing
-If `~/.gtd.json` is already set up, you can just run:
+Easiest is to:
+```sh
+cp ~/.gtd.json ~/.gtd.test.json
+```
+then update the `test` config to be shorter to parse and update the
+`default_config_name` in `main.rs`, and run:
 ```sh
 cargo run
 ```
