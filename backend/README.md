@@ -36,5 +36,11 @@ Mood
   online
 - Xwalk: Podcasts, reading to do while walking
 
+## Local testing
+If `~/.gtd.json` is already set up, you can just run:
+```sh
+cargo run
+```
+
 
 

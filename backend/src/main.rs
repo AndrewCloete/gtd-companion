@@ -103,6 +103,23 @@ struct Project {
     tasks: HashMap<TaskStatus, Vec<Task>>,
 }
 
+fn display_projects(projects: Vec<Project>) {
+    for proj in projects {
+        let proj_line = format!("-- {} --", proj.file_name);
+        println!("{}", proj_line.on_blue());
+        for status in TaskStatus::all() {
+            if !proj.tasks.contains_key(&status) {
+                continue;
+            }
+            println!("{}", status.to_color_str().dimmed());
+            for task in proj.tasks.get(&status).unwrap() {
+                println!("{}", task)
+            }
+        }
+        println!()
+    }
+}
+
 fn main() {
     let args = Args::parse();
     let home_path = var("HOME").expect("$HOME not defined");
@@ -194,18 +211,5 @@ fn main() {
         })
         .collect();
 
-    for proj in projects {
-        let proj_line = format!("-- {} --", proj.file_name);
-        println!("{}", proj_line.on_blue());
-        for status in TaskStatus::all() {
-            if !proj.tasks.contains_key(&status) {
-                continue;
-            }
-            println!("{}", status.to_color_str().dimmed());
-            for task in proj.tasks.get(&status).unwrap() {
-                println!("{}", task)
-            }
-        }
-        println!()
-    }
+    display_projects(projects)
 }
