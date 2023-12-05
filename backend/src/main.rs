@@ -32,6 +32,9 @@ struct Args {
     /// Not Task context
     #[arg(short = 'C', long)]
     not_context: Option<String>,
+
+    #[arg(short, long)]
+    pivot: Option<bool>,
 }
 
 impl Args {
@@ -103,7 +106,7 @@ struct Project {
     tasks: HashMap<TaskStatus, Vec<Task>>,
 }
 
-fn display_projects(projects: Vec<Project>) {
+fn display_projects(projects: &Vec<Project>) {
     for proj in projects {
         let proj_line = format!("-- {} --", proj.file_name);
         println!("{}", proj_line.on_blue());
@@ -120,25 +123,54 @@ fn display_projects(projects: Vec<Project>) {
     }
 }
 
-fn pivot_on_context(projects: Vec<Project>) {
-    let mut tasks_flat: Vec<(String, Task)> = projects
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+struct FlatContextTask {
+    context: String,
+    task: Task,
+}
+
+fn pivot_on_context(projects: &Vec<Project>) -> HashMap<String, Vec<FlatContextTask>> {
+    let flat_tasks: Vec<FlatContextTask> = projects
         .iter()
         .flat_map(|p| {
-            p.tasks
-                .iter()
-                .flat_map(|t| 
-                    t.1
-                    .iter()
-                    .map(|task| 
-                        (p.file_name, task.clone())
-                    )
-                )
+            p.tasks.iter().flat_map(|t| {
+                t.1.iter().flat_map(|task| {
+                    task.contexts.iter().map(|c| FlatContextTask {
+                        context: c.into(),
+                        task: task.clone(),
+                    })
+                })
+            })
         })
         .collect();
+
+    flat_tasks.iter().fold(
+        HashMap::new(),
+        |mut map: HashMap<String, Vec<FlatContextTask>>, task| {
+            let mut value: Vec<FlatContextTask> =
+                map.get(&task.context).unwrap_or(&vec![]).to_vec();
+            value.push(task.clone());
+            map.insert(String::from(&task.context), value);
+            map
+        },
+    )
+}
+
+fn print_by_context(projects: &Vec<Project>) {
+    for (context, flat_tasks) in pivot_on_context(projects) {
+        let ctx_line = format!("-- {} --", context);
+        println!("{}", ctx_line.on_blue());
+        let mut sorted_flat_tasks = flat_tasks.clone();
+        sorted_flat_tasks.sort_by(|a, b| a.task.project.cmp(&b.task.project));
+        for t in sorted_flat_tasks {
+            println!("{}", t.task.ctx_line());
+        }
+        println!()
+    }
 }
 
 fn main() {
-    let default_config_name = ".gtd.test.json";
+    let default_config_name = ".gtd.json";
     let args = Args::parse();
     let home_path = var("HOME").expect("$HOME not defined");
     let config = match fs::read_to_string(format!("{}/{}", home_path, default_config_name)) {
@@ -174,6 +206,8 @@ fn main() {
 
     let projects: Vec<Project> = file_paths
         .flat_map(|file_path| {
+            let file_name: String = file_path.file_name().to_str().unwrap().into();
+
             let file_content = fs::read_to_string(&file_path.path()).unwrap_or("".to_string());
 
             let task_lines = file_content
@@ -189,11 +223,13 @@ fn main() {
                 })
                 .unwrap_or(false)
             {
-                task_lines.map(|l| Task::from(&l)).collect::<Vec<Task>>()
+                task_lines
+                    .map(|l| Task::from(&l, &file_name))
+                    .collect::<Vec<Task>>()
             } else {
                 task_lines
                     .filter(|line| re.is_match(line))
-                    .map(|l| Task::from(&l))
+                    .map(|l| Task::from(&l, &file_name))
                     .filter(|task| !task.has_noflags())
                     .filter(|task| statuses.is_empty() || statuses.contains(&task.status))
                     .filter(|task| {
@@ -229,5 +265,11 @@ fn main() {
         })
         .collect();
 
-    display_projects(projects)
+    if args.pivot.unwrap_or(false) {
+        display_projects(&projects);
+        println!("---------------------------------------------------------");
+        print_by_context(&projects);
+    } else {
+        display_projects(&projects);
+    }
 }

@@ -74,9 +74,34 @@ impl std::str::FromStr for TaskStatus {
     }
 }
 
+struct TaskContext(String);
+
+impl TaskContext {
+    fn re_context() -> Regex {
+        Regex::new(r"(#x[A-Za-z0-9]{1,})+").unwrap()
+    }
+
+    pub fn extract_contexts(task: &str) -> Vec<String> {
+        TaskContext::re_context()
+            .captures_iter(task)
+            .map(|c| c.get(0).unwrap().as_str().into())
+            .collect()
+    }
+
+    pub fn remove_context_string(task: &str) -> String {
+        let no_contexts = TaskContext::re_context().replace_all(task, "").to_string();
+        Regex::new(r"\s+")
+            .unwrap()
+            .replace_all(&no_contexts, " ")
+            .to_string()
+    }
+}
+
+
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Task {
-    description: String,
+    pub description: String,
+    pub project: String,
     pub status: TaskStatus,
     pub contexts: Vec<String>,
 }
@@ -84,28 +109,19 @@ impl Task {
     pub fn re_any() -> Regex {
         Regex::new(r"(#x[A-Za-z0-9]{1,})|@todo|@wip|@review").unwrap()
     }
-    fn re_context() -> Regex {
-        Regex::new(r"(#x[A-Za-z0-9]{1,})+").unwrap()
-    }
-
-    fn extract_contexts(task: &str) -> Vec<String> {
-        Task::re_context()
-            .captures_iter(task)
-            .map(|c| c.get(0).unwrap().as_str().into())
-            .collect()
-    }
 
     // fn color_context(task: &str) -> String {
     //     let noStatus = Task::re_context().replace(task, ).to_string();
     //     Regex::new(r"\s+").unwrap().replace_all(&noStatus, " ").to_string()
     // }
 
-    pub fn from(task: &str) -> Task {
+    pub fn from(task: &str, project: &str) -> Task {
         let status = TaskStatus::classify(task);
-        let contexts = Task::extract_contexts(task);
-        let description = TaskStatus::remove_status_str(&task);
+        let contexts = TaskContext::extract_contexts(task);
+        let description = TaskContext::remove_context_string(&TaskStatus::remove_status_str(&task));
 
         Task {
+            project: String::from(project),
             description,
             status,
             contexts,
@@ -115,19 +131,23 @@ impl Task {
     pub fn has_noflags(&self) -> bool {
         self.contexts.is_empty() && self.status == TaskStatus::NoStatus
     }
+
+    pub fn ctx_line(&self) -> String {
+        let with_project = format!("{} {}", self.project.bold(), self.description);
+
+        Regex::new(r"\s+")
+            .unwrap()
+            .replace_all(&with_project, " ")
+            .to_string()
+    }
 }
+
 impl std::fmt::Display for Task {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let no_context = self
-            .contexts
-            .iter()
-            .fold(self.description.clone(), |desc: String, c: &String| {
-                desc.replace(c, "")
-            });
         let context_with_color = self
             .contexts
             .iter()
-            .fold(no_context, |desc: String, c: &String| {
+            .fold(self.description.clone(), |desc: String, c: &String| {
                 format!("{} {}", desc, c.blue())
             });
 
