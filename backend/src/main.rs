@@ -215,14 +215,17 @@ fn main() {
                 .map(|line| String::from(line))
                 .filter(|line| line.starts_with("- ") || line.starts_with("* "));
 
-            let tasks: Vec<Task> = if always_files
+            let has_always_flag = task_lines.clone().next().unwrap_or("".into()).contains("@always");
+
+            let is_always_file = always_files
                 .clone()
                 .map(|af| {
                     af.iter()
                         .any(|f| file_path.path().to_str().unwrap().contains(f))
                 })
-                .unwrap_or(false)
-            {
+                .unwrap_or(false);
+
+            let tasks: Vec<Task> = if is_always_file || has_always_flag {
                 task_lines
                     .map(|l| Task::from(&l, &file_name))
                     .collect::<Vec<Task>>()
