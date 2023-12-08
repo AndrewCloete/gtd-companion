@@ -1,13 +1,11 @@
 use clap::Parser;
 use colored::*;
-use model::{Task, TaskStatus, Project};
+use gtd_cli::model::{Task, TaskStatus, Project};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::env::var;
 use std::fs;
 use walkdir::{DirEntry, WalkDir};
-
-pub mod model;
 
 /// Turns a text-based knowledge base into a GTD system
 #[derive(Parser, Debug)]
