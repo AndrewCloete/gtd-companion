@@ -1,6 +1,6 @@
 use clap::Parser;
 use colored::*;
-use model::{Task, TaskStatus};
+use model::{Task, TaskStatus, Project};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::env::var;
@@ -35,6 +35,9 @@ struct Args {
 
     #[arg(short, long)]
     pivot: Option<bool>,
+
+    #[arg(short = 'j', long)]
+    json: Option<bool>,
 }
 
 impl Args {
@@ -100,11 +103,6 @@ impl ConfigFile {
     }
 }
 
-#[derive(Debug)]
-struct Project {
-    file_name: String,
-    tasks: HashMap<TaskStatus, Vec<Task>>,
-}
 
 fn display_projects(projects: &Vec<Project>) {
     for proj in projects {
@@ -155,6 +153,11 @@ fn pivot_on_context(projects: &Vec<Project>) -> HashMap<String, Vec<FlatContextT
         },
     )
 }
+fn flat_tasks(projects: &Vec<Project>) -> Vec<Task> {
+    projects.iter().flat_map(|p| {
+        p.tasks.iter().flat_map(|t| t.1.clone())
+    }).collect()
+}
 
 fn print_by_context(projects: &Vec<Project>) {
     for (context, flat_tasks) in pivot_on_context(projects) {
@@ -170,7 +173,7 @@ fn print_by_context(projects: &Vec<Project>) {
 }
 
 fn main() {
-    let default_config_name = ".gtd.json";
+    let default_config_name = ".gtd.test.json";
     let args = Args::parse();
     let home_path = var("HOME").expect("$HOME not defined");
     let config = match fs::read_to_string(format!("{}/{}", home_path, default_config_name)) {
@@ -215,7 +218,11 @@ fn main() {
                 .map(|line| String::from(line))
                 .filter(|line| line.starts_with("- ") || line.starts_with("* "));
 
-            let has_always_flag = task_lines.clone().next().unwrap_or("".into()).contains("@always");
+            let has_always_flag = task_lines
+                .clone()
+                .next()
+                .unwrap_or("".into())
+                .contains("@always");
 
             let is_always_file = always_files
                 .clone()
@@ -272,6 +279,8 @@ fn main() {
         display_projects(&projects);
         println!("---------------------------------------------------------");
         print_by_context(&projects);
+    } else if args.json.unwrap_or(false) {
+        print!("{}", serde_json::to_string_pretty(&flat_tasks(&projects)).unwrap());
     } else {
         display_projects(&projects);
     }

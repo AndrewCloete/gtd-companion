@@ -1,8 +1,10 @@
 use colored::*;
 use std::str::FromStr;
+use serde::Serialize;
+use std::collections::HashMap;
 
 use regex::Regex;
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Copy, Serialize, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum TaskStatus {
     NoStatus,
     Todo,
@@ -74,6 +76,7 @@ impl std::str::FromStr for TaskStatus {
     }
 }
 
+#[derive(Serialize)]
 struct TaskContext(String);
 
 impl TaskContext {
@@ -98,7 +101,7 @@ impl TaskContext {
 }
 
 
-#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Clone, Serialize, PartialEq, Eq, Debug, Hash)]
 pub struct Task {
     pub description: String,
     pub project: String,
@@ -157,4 +160,10 @@ impl std::fmt::Display for Task {
             .to_string()
             .fmt(f)
     }
+}
+
+#[derive(Debug, Serialize)]
+pub struct Project {
+    pub file_name: String,
+    pub tasks: HashMap<TaskStatus, Vec<Task>>,
 }
