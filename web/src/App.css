@@ -1,7 +1,9 @@
 .App {
   background-color: #282c34;
   color: whitesmoke;
-  font-family: monospace 
+  font-family: monospace;
+  min-height: 100vh;
+  
 }
 
 .Status_Todo {
@@ -37,6 +39,24 @@
 
 .App-link {
   color: #61dafb;
+}
+
+.project {
+  display: flex;
+  border-bottom: #61dafb;
+  border-style: dashed;
+  border-width: 0px 0px 1px 0px;
+  padding: 2px;
+}
+
+.block1 {
+  text-align: right;
+  width: 15em;
+  padding-right: 10px;
+}
+
+.block2 {
+  width: 50em;
 }
 
 @keyframes App-logo-spin {

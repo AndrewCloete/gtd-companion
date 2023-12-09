@@ -7,7 +7,7 @@ import { useState } from "react";
 type Tab = "ByProject" | "ByContext";
 
 const statuses = ["Todo", "Wip", "NoStatus", "Review"] as const;
-type TaskStatus = typeof statuses[number];
+type TaskStatus = (typeof statuses)[number];
 type Project = string;
 type Context = string;
 type Task = {
@@ -69,20 +69,22 @@ function StatusSelector(props: {
     };
   }
 
-  return <div>
-    {statuses.map((s) => {
-      return (
-        <label key={s}>
-          <input
-            type="checkbox"
-            checked={has(s as TaskStatus)}
-            onChange={handelSelected(s as TaskStatus)}
-          />
-          {s}
-        </label>
-      );
-    })}
-  </div>;
+  return (
+    <div>
+      {statuses.map((s) => {
+        return (
+          <label key={s}>
+            <input
+              type="checkbox"
+              checked={has(s as TaskStatus)}
+              onChange={handelSelected(s as TaskStatus)}
+            />
+            {s}
+          </label>
+        );
+      })}
+    </div>
+  );
 }
 
 function CompStatus(props: { status: string; text: string }) {
@@ -114,15 +116,17 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
 
 function CompByProject(props: { project: Project; tasks: Task[] }) {
   return (
-    <div>
-      <div>{props.project}</div>
-      {props.tasks.map((t) => {
-        return (
-          <div key={t.description}>
-            <CompTask task={t}></CompTask>
-          </div>
-        );
-      })}
+    <div className="project">
+      <div className="block1">{props.project}</div>
+      <div className="block2">
+        {props.tasks.map((t) => {
+          return (
+            <div key={t.description}>
+              <CompTask task={t}></CompTask>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -135,7 +139,6 @@ function CompByProjects(props: { tasks: Task[] }) {
         return (
           <div key={project}>
             <CompByProject project={project} tasks={subTasks}></CompByProject>
-            <br />
           </div>
         );
       })}
@@ -161,13 +164,21 @@ function CompByContexts(props: { tasks: Task[] }) {
 
 function App() {
   let [selectedTab, setSelectedTab] = useState<Tab>("ByProject");
-  let [selectedStatuses, setSelectedStatuses] = useState<TaskStatus[]>(statuses.map(s => s))
-  let filtered_tasks = _.filter((t: Task) => selectedStatuses.includes(t.status),tasks)
+  let [selectedStatuses, setSelectedStatuses] = useState<TaskStatus[]>(
+    statuses.map((s) => s)
+  );
+  let filtered_tasks = _.filter(
+    (t: Task) => selectedStatuses.includes(t.status),
+    tasks
+  );
   return (
     <div className="App">
       {/* <header className="App-header">
       </header> */}
-      <StatusSelector selectedStatuses={selectedStatuses} setSelectedStatuses={setSelectedStatuses}></StatusSelector>
+      <StatusSelector
+        selectedStatuses={selectedStatuses}
+        setSelectedStatuses={setSelectedStatuses}
+      ></StatusSelector>
       <button onClick={() => setSelectedTab("ByProject")}>ByProject</button>
       <button onClick={() => setSelectedTab("ByContext")}>ByContext</button>
       {selectedTab == "ByProject" ? (
