@@ -54,7 +54,7 @@ async fn main() {
         .layer(CorsLayer::permissive())
         .with_state(Arc::clone(&shared_state));
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:8084")
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8084")
         .await
         .unwrap();
 

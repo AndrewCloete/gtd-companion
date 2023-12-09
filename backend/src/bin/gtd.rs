@@ -1,3 +1,4 @@
+use base64::{engine::general_purpose, Engine as _};
 use clap::Parser;
 use colored::*;
 use gtd_cli::model::{Project, Task, TaskStatus};
@@ -87,12 +88,26 @@ fn is_hidden(entry: &DirEntry) -> bool {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+struct ServerConfig {
+    host: String,
+    user: String,
+    psw: String,
+}
+
+impl ServerConfig {
+    pub fn basic_token(&self) -> String {
+        let merge = format!("{}:{}", &self.user, &self.psw);
+        general_purpose::URL_SAFE.encode(merge)
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
 struct ConfigFile {
     default_dirs: Option<Vec<std::path::PathBuf>>,
     ignore_files: Option<Vec<String>>,
     always_files: Option<Vec<String>>,
     default_not_context: Option<Vec<String>>,
-    post_host: Option<String>,
+    server: Option<ServerConfig>,
 }
 
 impl ConfigFile {
@@ -102,7 +117,7 @@ impl ConfigFile {
             always_files: None,
             ignore_files: None,
             default_not_context: None,
-            post_host: None,
+            server: None,
         };
     }
 }
@@ -177,7 +192,7 @@ fn print_by_context(projects: &Vec<Project>) {
 }
 
 fn main() {
-    let default_config_name = ".gtd.test.json";
+    let default_config_name = ".gtd.json";
     let args = Args::parse();
     let home_path = var("HOME").expect("$HOME not defined");
     let config = match fs::read_to_string(format!("{}/{}", home_path, default_config_name)) {
@@ -291,14 +306,16 @@ fn main() {
     } else {
         display_projects(&projects);
     }
-    if args.web.unwrap_or(true) && config.post_host.is_some() {
+    if args.web.unwrap_or(true) && config.server.is_some() {
         let tasks_string = serde_json::to_string_pretty(&flat_tasks(&projects)).unwrap();
-        let url = config.post_host.unwrap() + "/tasks";
+        let server_cnf = config.server.unwrap().clone();
+        let url = server_cnf.host.clone() + "/tasks";
         let client = reqwest::blocking::Client::new();
         let res = client
             .post(url)
             .body(tasks_string)
             .header("Content-Type", "application/json")
+            .header("Authorization", "Basic ".to_owned() + &server_cnf.basic_token())
             .send()
             .unwrap();
         println!("{:?}", res.text());
