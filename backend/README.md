@@ -44,9 +44,9 @@ cp ~/.gtd.json ~/.gtd.test.json
 then update the `test` config to be shorter to parse and update the
 `default_config_name` in `main.rs`, and run:
 ```sh
-cargo run --bin server
-cargo run --bin gtd -- -w true
-cargo run --bin gtd -- -j true > /tmp/gtd-out.json
+cargo run --bin gtd-server
+cargo run --bin gtd-cli -- -w true
+cargo run --bin gtd-cli -- -j true > /tmp/gtd-out.json
 ```
 
 
