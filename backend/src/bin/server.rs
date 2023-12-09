@@ -3,8 +3,10 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
     routing::get,
-    Json, Router
+    Json, Router,
 };
+
+use tower_http::cors::CorsLayer;
 
 use std::sync::{Arc, RwLock};
 
@@ -49,9 +51,10 @@ async fn main() {
     let app = Router::new()
         .route("/", get(index))
         .route("/tasks", get(get_tasks).post(set_tasks))
+        .layer(CorsLayer::permissive())
         .with_state(Arc::clone(&shared_state));
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:7654")
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:8084")
         .await
         .unwrap();
 
