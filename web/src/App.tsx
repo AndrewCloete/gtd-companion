@@ -3,6 +3,8 @@ import * as _ from "lodash/fp";
 
 import { useEffect, useState } from "react";
 
+const HOST = "http://localhost:8083/tasks"
+
 type Tab = "ByProject" | "ByContext";
 
 const statuses = ["Todo", "Wip", "NoStatus", "Review"] as const;
@@ -163,7 +165,7 @@ async function getTasks(): Promise<Task[]> {
   const requestOptions = {
     method: "GET",
   };
-  const response = await fetch("http://localhost:8083/tasks", requestOptions);
+  const response = await fetch(HOST, requestOptions);
   const tasks = (await response.json()) as Task[];
   return tasks;
 }
