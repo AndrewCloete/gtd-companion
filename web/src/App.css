@@ -1,19 +1,30 @@
 .App {
-  text-align: center;
+  background-color: #282c34;
+  color: whitesmoke;
+  font-family: monospace 
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+.Status_Todo {
+  color: green; 
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+.Status_Wip {
+  color: darkred; 
 }
 
-.App-header {
+.Status_Review {
+  color: darkgoldenrod; 
+}
+
+.Status_NoStatus {
+  color: gray;
+}
+
+.Context {
+  background-color: darkblue;
+}
+
+/* .App-header {
   background-color: #282c34;
   min-height: 100vh;
   display: flex;
@@ -22,7 +33,7 @@
   justify-content: center;
   font-size: calc(10px + 2vmin);
   color: white;
-}
+} */
 
 .App-link {
   color: #61dafb;
