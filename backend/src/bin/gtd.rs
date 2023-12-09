@@ -1,6 +1,7 @@
 use clap::Parser;
 use colored::*;
-use gtd_cli::model::{Task, TaskStatus, Project};
+use gtd_cli::model::{Project, Task, TaskStatus};
+use reqwest;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::env::var;
@@ -36,6 +37,9 @@ struct Args {
 
     #[arg(short = 'j', long)]
     json: Option<bool>,
+
+    #[arg(short = 'w', long)]
+    web: Option<bool>,
 }
 
 impl Args {
@@ -88,6 +92,7 @@ struct ConfigFile {
     ignore_files: Option<Vec<String>>,
     always_files: Option<Vec<String>>,
     default_not_context: Option<Vec<String>>,
+    post_host: Option<String>,
 }
 
 impl ConfigFile {
@@ -97,10 +102,10 @@ impl ConfigFile {
             always_files: None,
             ignore_files: None,
             default_not_context: None,
+            post_host: None,
         };
     }
 }
-
 
 fn display_projects(projects: &Vec<Project>) {
     for proj in projects {
@@ -152,9 +157,10 @@ fn pivot_on_context(projects: &Vec<Project>) -> HashMap<String, Vec<FlatContextT
     )
 }
 fn flat_tasks(projects: &Vec<Project>) -> Vec<Task> {
-    projects.iter().flat_map(|p| {
-        p.tasks.iter().flat_map(|t| t.1.clone())
-    }).collect()
+    projects
+        .iter()
+        .flat_map(|p| p.tasks.iter().flat_map(|t| t.1.clone()))
+        .collect()
 }
 
 fn print_by_context(projects: &Vec<Project>) {
@@ -278,8 +284,23 @@ fn main() {
         println!("---------------------------------------------------------");
         print_by_context(&projects);
     } else if args.json.unwrap_or(false) {
-        print!("{}", serde_json::to_string_pretty(&flat_tasks(&projects)).unwrap());
+        print!(
+            "{}",
+            serde_json::to_string_pretty(&flat_tasks(&projects)).unwrap()
+        );
     } else {
         display_projects(&projects);
+    }
+    if args.web.unwrap_or(true) && config.post_host.is_some() {
+        let tasks_string = serde_json::to_string_pretty(&flat_tasks(&projects)).unwrap();
+        let url = config.post_host.unwrap() + "/tasks";
+        let client = reqwest::blocking::Client::new();
+        let res = client
+            .post(url)
+            .body(tasks_string)
+            .header("Content-Type", "application/json")
+            .send()
+            .unwrap();
+        println!("{:?}", res.text());
     }
 }

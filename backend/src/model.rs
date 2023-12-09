@@ -1,10 +1,10 @@
 use colored::*;
 use std::str::FromStr;
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 
 use regex::Regex;
-#[derive(Copy, Serialize, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Copy, Serialize, Deserialize, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum TaskStatus {
     NoStatus,
     Todo,
@@ -101,7 +101,7 @@ impl TaskContext {
 }
 
 
-#[derive(Clone, Serialize, PartialEq, Eq, Debug, Hash)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug, Hash)]
 pub struct Task {
     pub description: String,
     pub project: String,
