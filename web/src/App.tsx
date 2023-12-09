@@ -2,8 +2,7 @@ import "./App.css";
 import * as _ from "lodash/fp";
 
 import { useEffect, useState } from "react";
-
-const HOST = "http://localhost:8083/tasks"
+import env from "./.env.json";
 
 type Tab = "ByProject" | "ByContext";
 
@@ -116,7 +115,9 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
 function CompByProject(props: { project: Project; tasks: Task[] }) {
   return (
     <div className="project">
-      <div className="block1"><span className="Project_text">{props.project}</span></div>
+      <div className="block1">
+        <span className="Project_text">{props.project}</span>
+      </div>
       <div className="block2">
         {props.tasks.map((t) => {
           return (
@@ -162,12 +163,18 @@ function CompByContexts(props: { tasks: Task[] }) {
 }
 
 async function getTasks(): Promise<Task[]> {
-  const requestOptions = {
+  const url = `${env.scheme}://${env.host}`;
+  const requestOptionsFetch = {
     method: "GET",
+    headers: {
+      Authorization: "Basic " + btoa(env.user + ":" + env.psw),
+    },
   };
-  const response = await fetch(HOST, requestOptions);
+  //@ts-ignore
+  const response = await fetch(url + "/tasks", requestOptionsFetch);
   const tasks = (await response.json()) as Task[];
   return tasks;
+  return [];
 }
 
 function App() {
@@ -179,13 +186,13 @@ function App() {
   function filteredTasks(): Task[] {
     return _.filter((t: Task) => selectedStatuses.includes(t.status), tasks);
   }
-  async function loadTasks(){
-      const networkTasks = await getTasks();
-      setTasks(networkTasks);
+  async function loadTasks() {
+    const networkTasks = await getTasks();
+    setTasks(networkTasks);
   }
 
   useEffect(() => {
-    loadTasks()
+    loadTasks();
   }, []);
 
   return (
