@@ -315,7 +315,10 @@ fn main() {
             .post(url)
             .body(tasks_string)
             .header("Content-Type", "application/json")
-            .header("Authorization", "Basic ".to_owned() + &server_cnf.basic_token())
+            .header(
+                "Authorization",
+                "Basic ".to_owned() + &server_cnf.basic_token(),
+            )
             .send()
             .unwrap();
         println!("{:?}", res.text());
