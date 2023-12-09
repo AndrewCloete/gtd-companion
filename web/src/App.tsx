@@ -1,8 +1,7 @@
 import "./App.css";
 import * as _ from "lodash/fp";
 
-import tasks_import from "./gtd-out.json";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type Tab = "ByProject" | "ByContext";
 
@@ -19,8 +18,6 @@ type Task = {
 
 type ByProject = Map<Project, Task[]>;
 type ByContext = Map<Context, Task[]>;
-
-const tasks = tasks_import as Task[];
 
 function toByProject(tasks: Task[]): ByProject {
   return tasks.reduce((results: ByProject, task: Task) => {
@@ -117,7 +114,7 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
 function CompByProject(props: { project: Project; tasks: Task[] }) {
   return (
     <div className="project">
-      <div className="block1">{props.project}</div>
+      <div className="block1"><span className="Project_text">{props.project}</span></div>
       <div className="block2">
         {props.tasks.map((t) => {
           return (
@@ -162,15 +159,33 @@ function CompByContexts(props: { tasks: Task[] }) {
   );
 }
 
+async function getTasks(): Promise<Task[]> {
+  const requestOptions = {
+    method: "GET",
+  };
+  const response = await fetch("http://localhost:8083/tasks", requestOptions);
+  const tasks = (await response.json()) as Task[];
+  return tasks;
+}
+
 function App() {
+  let [tasks, setTasks] = useState<Task[]>([]);
   let [selectedTab, setSelectedTab] = useState<Tab>("ByProject");
   let [selectedStatuses, setSelectedStatuses] = useState<TaskStatus[]>(
     statuses.map((s) => s)
   );
-  let filtered_tasks = _.filter(
-    (t: Task) => selectedStatuses.includes(t.status),
-    tasks
-  );
+  function filteredTasks(): Task[] {
+    return _.filter((t: Task) => selectedStatuses.includes(t.status), tasks);
+  }
+  async function loadTasks(){
+      const networkTasks = await getTasks();
+      setTasks(networkTasks);
+  }
+
+  useEffect(() => {
+    loadTasks()
+  }, []);
+
   return (
     <div className="App">
       {/* <header className="App-header">
@@ -181,10 +196,11 @@ function App() {
       ></StatusSelector>
       <button onClick={() => setSelectedTab("ByProject")}>ByProject</button>
       <button onClick={() => setSelectedTab("ByContext")}>ByContext</button>
+      <button onClick={() => loadTasks()}>Load</button>
       {selectedTab == "ByProject" ? (
-        <CompByProjects tasks={filtered_tasks}></CompByProjects>
+        <CompByProjects tasks={filteredTasks()}></CompByProjects>
       ) : (
-        <CompByContexts tasks={filtered_tasks}></CompByContexts>
+        <CompByContexts tasks={filteredTasks()}></CompByContexts>
       )}
     </div>
   );

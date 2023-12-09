@@ -7,23 +7,27 @@
 }
 
 .Status_Todo {
-  color: green; 
+  color: rgb(78, 128, 78); 
 }
 
 .Status_Wip {
-  color: darkred; 
+  color: rgb(253, 179, 127); 
 }
 
 .Status_Review {
-  color: darkgoldenrod; 
+  color: rgb(155, 97, 162); 
 }
 
 .Status_NoStatus {
-  color: gray;
+  color: rgb(73, 73, 73);
 }
 
 .Context {
-  background-color: darkblue;
+  background-color: rgb(81, 81, 97);
+}
+
+.Project_text {
+  color: rgb(176, 176, 176);
 }
 
 /* .App-header {
@@ -43,16 +47,22 @@
 
 .project {
   display: flex;
-  border-bottom: #61dafb;
+  border-top: #2c6170;
   border-style: dashed;
-  border-width: 0px 0px 1px 0px;
+  border-width: 1px 0px 0px 0px;
   padding: 2px;
+}
+
+.project:hover {
+  background-color: #131519;
 }
 
 .block1 {
   text-align: right;
   width: 15em;
-  padding-right: 10px;
+  margin-right: 5px;
+  padding-right: 5px;
+  background-color: #131519;
 }
 
 .block2 {
