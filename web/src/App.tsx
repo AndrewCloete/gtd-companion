@@ -22,6 +22,11 @@ type Task = {
 type ByProject = Map<Project, Task[]>;
 type ByContext = Map<Context, Task[]>;
 
+function todayDate(): string {
+  let rightNow = new Date();
+  return rightNow.toISOString().slice(0, 10).replace(/-/g, "");
+}
+
 function toByProject(tasks: Task[]): ByProject {
   return tasks.reduce((results: ByProject, task: Task) => {
     const p = task.project;
@@ -87,7 +92,12 @@ function StatusSelector(props: {
   );
 }
 
-function DatePicker(props: { date: string; setDate: (date: string) => void, hasDue: boolean, setHasDue: (hasDue: boolean) => void }) {
+function DatePicker(props: {
+  date: string;
+  setDate: (date: string) => void;
+  hasDue: boolean;
+  setHasDue: (hasDue: boolean) => void;
+}) {
   function handleChange(event: any) {
     props.setDate(event.target.value);
   }
@@ -95,9 +105,7 @@ function DatePicker(props: { date: string; setDate: (date: string) => void, hasD
     props.setDate("");
   }
   function today(): void {
-    let rightNow = new Date();
-    const res = rightNow.toISOString().slice(0, 10).replace(/-/g, "");
-    props.setDate(res);
+    props.setDate(todayDate());
   }
 
   return (
@@ -105,14 +113,14 @@ function DatePicker(props: { date: string; setDate: (date: string) => void, hasD
       <button onClick={today}>Today</button>
       <button onClick={clear}>Clear</button>
       <input type="text" value={props.date} onChange={handleChange} />
-          <label>
-            <input
-              type="checkbox"
-              checked={props.hasDue}
-              onChange={() => props.setHasDue(!props.hasDue)}
-            />
-            HasDue
-          </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={props.hasDue}
+          onChange={() => props.setHasDue(!props.hasDue)}
+        />
+        HasDue
+      </label>
     </div>
   );
 }
@@ -123,7 +131,40 @@ function CompStatus(props: { status: string; text: string }) {
 
 function CompTask(props: { task: Task; hideContext?: boolean }) {
   function displayDate(date: string) {
-    return date.slice(0,4) + "-" + date.slice(4,6) + "-" + date.slice(6,8)
+    return date.slice(0, 4) + "-" + date.slice(4, 6) + "-" + date.slice(6, 8);
+  }
+
+  function TaskDate(props: { date: string | undefined; className: string }) {
+    return props.date ? (
+      <span>
+        {" "}
+        <span className={props.className}>{displayDate(props.date)}</span>{" "}
+      </span>
+    ) : null;
+  }
+  function StartDate(props: { task: Task }) {
+    return (
+      <TaskDate date={props.task.dates?.start} className="DateStart"></TaskDate>
+    );
+  }
+  function DueDate(props: { task: Task }) {
+    let dueDate = props.task.dates?.due;
+    if (!dueDate) {
+      return null;
+    }
+    let dateDiff = Number(dueDate) - Number(todayDate());
+    function getDueClass(diff: Number) {
+      if (dateDiff < 0) {
+        return "DateDueOver";
+      }
+      if (dateDiff > 0) {
+        return "DateDueFuture";
+      }
+      return "DateDueToday";
+    }
+    return (
+      <TaskDate date={dueDate} className={getDueClass(dateDiff)}></TaskDate>
+    );
   }
 
   return (
@@ -135,8 +176,8 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
         ></CompStatus>
       </span>
 
-      {props.task.dates?.start ? (<span>{" "}<span className="DateStart">{displayDate(props.task.dates?.start)}</span>{" "}</span>) : null}
-      {props.task.dates?.due ? (<span>{" "}<span className="DateDue">{displayDate(props.task.dates?.due)}</span>{" "}</span>) : null}
+      <StartDate task={props.task}></StartDate>
+      <DueDate task={props.task}></DueDate>
 
       {!props.hideContext
         ? props.task.contexts.map((c) => {
@@ -223,12 +264,11 @@ function App() {
     statuses.map((s) => s)
   );
   let [startDate, setStartDate] = useState<string>("");
-  let [hasDue, setHasDue] = useState<boolean>(false)
+  let [hasDue, setHasDue] = useState<boolean>(false);
   function filteredTasks(): Task[] {
-    let ftasks = _.filter(
-      (t: Task) => selectedStatuses.includes(t.status),
-      tasks
-    );
+    let ftasks = _.sortBy((t: Task) => t.dates?.due, tasks);
+
+    ftasks = _.filter((t: Task) => selectedStatuses.includes(t.status), ftasks);
     function startDateFilter(t: Task) {
       if (!startDate || startDate.length != 8) {
         return true;
@@ -238,14 +278,14 @@ function App() {
       }
       return Number(t.dates.start) < Number(startDate);
     }
-    ftasks =  _.filter(startDateFilter, ftasks)
+    ftasks = _.filter(startDateFilter, ftasks);
 
-    if (!hasDue){
-      return ftasks
+    if (!hasDue) {
+      return ftasks;
     }
 
-    ftasks = _.filter((t: Task) => !!t.dates?.due, ftasks)
-    return ftasks
+    ftasks = _.filter((t: Task) => !!t.dates?.due, ftasks);
+    return ftasks;
   }
   async function loadTasks() {
     const networkTasks = await getTasks();
@@ -264,7 +304,12 @@ function App() {
         selectedStatuses={selectedStatuses}
         setSelectedStatuses={setSelectedStatuses}
       ></StatusSelector>
-      <DatePicker date={startDate} setDate={setStartDate} hasDue={hasDue} setHasDue={setHasDue}></DatePicker>
+      <DatePicker
+        date={startDate}
+        setDate={setStartDate}
+        hasDue={hasDue}
+        setHasDue={setHasDue}
+      ></DatePicker>
       <button onClick={() => setSelectedTab("ByProject")}>ByProject</button>
       <button onClick={() => setSelectedTab("ByContext")}>ByContext</button>
       <button onClick={() => loadTasks()}>Load</button>

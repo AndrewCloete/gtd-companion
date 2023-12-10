@@ -30,8 +30,14 @@
   background-color: rgb(42, 70, 94);
 }
 
-.DateDue {
-  background-color: rgb(106, 65, 48);
+.DateDueFuture {
+  background-color: rgb(48, 106, 67);
+}
+.DateDueToday {
+  background-color: rgb(144, 144, 20);
+}
+.DateDueOver {
+  background-color: rgb(146, 19, 19);
 }
 
 .Project_text {
