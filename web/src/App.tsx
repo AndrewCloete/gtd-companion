@@ -10,11 +10,13 @@ const statuses = ["Todo", "Wip", "NoStatus", "Review"] as const;
 type TaskStatus = (typeof statuses)[number];
 type Project = string;
 type Context = string;
+type TaskDates = { start: string; due: string };
 type Task = {
   description: string;
   project: Project;
   status: TaskStatus;
   contexts: Context[];
+  dates: TaskDates | undefined;
 };
 
 type ByProject = Map<Project, Task[]>;
@@ -85,11 +87,45 @@ function StatusSelector(props: {
   );
 }
 
+function DatePicker(props: { date: string; setDate: (date: string) => void, hasDue: boolean, setHasDue: (hasDue: boolean) => void }) {
+  function handleChange(event: any) {
+    props.setDate(event.target.value);
+  }
+  function clear(): void {
+    props.setDate("");
+  }
+  function today(): void {
+    let rightNow = new Date();
+    const res = rightNow.toISOString().slice(0, 10).replace(/-/g, "");
+    props.setDate(res);
+  }
+
+  return (
+    <div>
+      <button onClick={today}>Today</button>
+      <button onClick={clear}>Clear</button>
+      <input type="text" value={props.date} onChange={handleChange} />
+          <label>
+            <input
+              type="checkbox"
+              checked={props.hasDue}
+              onChange={() => props.setHasDue(!props.hasDue)}
+            />
+            HasDue
+          </label>
+    </div>
+  );
+}
+
 function CompStatus(props: { status: string; text: string }) {
   return <span className={"Status_" + props.status}>{props.text}</span>;
 }
 
 function CompTask(props: { task: Task; hideContext?: boolean }) {
+  function displayDate(date: string) {
+    return date.slice(0,4) + "-" + date.slice(4,6) + "-" + date.slice(6,8)
+  }
+
   return (
     <div>
       <span>
@@ -98,6 +134,9 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
           text={props.task.description}
         ></CompStatus>
       </span>
+
+      {props.task.dates?.start ? (<span>{" "}<span className="DateStart">{displayDate(props.task.dates?.start)}</span>{" "}</span>) : null}
+      {props.task.dates?.due ? (<span>{" "}<span className="DateDue">{displayDate(props.task.dates?.due)}</span>{" "}</span>) : null}
 
       {!props.hideContext
         ? props.task.contexts.map((c) => {
@@ -183,8 +222,30 @@ function App() {
   let [selectedStatuses, setSelectedStatuses] = useState<TaskStatus[]>(
     statuses.map((s) => s)
   );
+  let [startDate, setStartDate] = useState<string>("");
+  let [hasDue, setHasDue] = useState<boolean>(false)
   function filteredTasks(): Task[] {
-    return _.filter((t: Task) => selectedStatuses.includes(t.status), tasks);
+    let ftasks = _.filter(
+      (t: Task) => selectedStatuses.includes(t.status),
+      tasks
+    );
+    function startDateFilter(t: Task) {
+      if (!startDate || startDate.length != 8) {
+        return true;
+      }
+      if (!t.dates || !t.dates.start) {
+        return true;
+      }
+      return Number(t.dates.start) < Number(startDate);
+    }
+    ftasks =  _.filter(startDateFilter, ftasks)
+
+    if (!hasDue){
+      return ftasks
+    }
+
+    ftasks = _.filter((t: Task) => !!t.dates?.due, ftasks)
+    return ftasks
   }
   async function loadTasks() {
     const networkTasks = await getTasks();
@@ -203,6 +264,7 @@ function App() {
         selectedStatuses={selectedStatuses}
         setSelectedStatuses={setSelectedStatuses}
       ></StatusSelector>
+      <DatePicker date={startDate} setDate={setStartDate} hasDue={hasDue} setHasDue={setHasDue}></DatePicker>
       <button onClick={() => setSelectedTab("ByProject")}>ByProject</button>
       <button onClick={() => setSelectedTab("ByContext")}>ByContext</button>
       <button onClick={() => loadTasks()}>Load</button>

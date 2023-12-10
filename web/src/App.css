@@ -26,6 +26,14 @@
   background-color: rgb(81, 81, 97);
 }
 
+.DateStart {
+  background-color: rgb(42, 70, 94);
+}
+
+.DateDue {
+  background-color: rgb(106, 65, 48);
+}
+
 .Project_text {
   color: rgb(176, 176, 176);
 }
