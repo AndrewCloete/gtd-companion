@@ -150,7 +150,7 @@ impl Task {
     }
 
     pub fn has_noflags(&self) -> bool {
-        self.contexts.is_empty() && self.status == TaskStatus::NoStatus
+        self.contexts.is_empty() && self.status == TaskStatus::NoStatus && self.start_date.is_none()
     }
 
     pub fn ctx_line(&self) -> String {

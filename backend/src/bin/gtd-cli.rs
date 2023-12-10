@@ -308,7 +308,6 @@ fn main() {
     }
     if args.web.unwrap_or(true) && config.server.is_some() {
         let tasks_string = serde_json::to_string_pretty(&flat_tasks(&projects)).unwrap();
-        println!("{:?}", tasks_string);
         let server_cnf = config.server.unwrap().clone();
         let url = server_cnf.host.clone() + "/tasks";
         let client = reqwest::blocking::Client::new();
