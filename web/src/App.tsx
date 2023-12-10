@@ -134,11 +134,11 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
     return date.slice(0, 4) + "-" + date.slice(4, 6) + "-" + date.slice(6, 8);
   }
 
-  function TaskDate(props: { date: string | undefined; className: string }) {
+  function TaskDate(props: { date: string | undefined; diff?: number, className: string }) {
     return props.date ? (
       <span>
         {" "}
-        <span className={props.className}>{displayDate(props.date)}</span>{" "}
+        <span className={props.className}>{displayDate(props.date)}{props.diff ? " (" + props.diff + ")" : null}</span>{" "}
       </span>
     ) : null;
   }
@@ -152,18 +152,18 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
     if (!dueDate) {
       return null;
     }
-    let dateDiff = Number(dueDate) - Number(todayDate());
+    let daysDiff = Number(dueDate) - Number(todayDate());
     function getDueClass(diff: Number) {
-      if (dateDiff < 0) {
+      if (daysDiff < 0) {
         return "DateDueOver";
       }
-      if (dateDiff > 0) {
+      if (daysDiff > 0) {
         return "DateDueFuture";
       }
       return "DateDueToday";
     }
     return (
-      <TaskDate date={dueDate} className={getDueClass(dateDiff)}></TaskDate>
+      <TaskDate date={dueDate} className={getDueClass(daysDiff)} diff={daysDiff}></TaskDate>
     );
   }
 
