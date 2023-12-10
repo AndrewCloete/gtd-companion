@@ -1,7 +1,7 @@
 use colored::*;
-use std::str::FromStr;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use regex::Regex;
 #[derive(Copy, Serialize, Deserialize, Clone, PartialEq, Eq, Debug, Hash)]
@@ -100,6 +100,15 @@ impl TaskContext {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug, Hash)]
+pub struct TaskDates {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub start: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub due: Option<String>,
+}
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug, Hash)]
 pub struct Task {
@@ -109,21 +118,30 @@ pub struct Task {
     pub contexts: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    pub start_date: Option<String>
+    pub dates: Option<TaskDates>,
 }
 impl Task {
     pub fn re_any() -> Regex {
-        Regex::new(r"(#x[A-Za-z0-9]{1,})|(#d[0-9]{8})|@todo|@wip|@review").unwrap() }
-
-    pub fn re_date() -> Regex {
-        Regex::new(r"(#d[0-9]{8})").unwrap()
+        Regex::new(r"(#x[A-Za-z0-9]{1,})|(#[d,s][0-9]{8})|@todo|@wip|@review").unwrap()
     }
 
-    pub fn extract_date(task: &str) -> Option<String> {
-        Task::re_date()
-            .captures(task)
-            .map(|cap| cap.get(0).unwrap().as_str())
-            .map(|s| s.into())
+    pub fn re_date() -> Regex {
+        Regex::new(r"(#[d,s][0-9]{8})").unwrap()
+    }
+
+    pub fn extract_dates(task: &str) -> Option<TaskDates> {
+        let dates: Vec<String> = TaskContext::re_context()
+            .captures_iter(task)
+            .map(|c| c.get(0).unwrap().as_str().into())
+            .collect();
+        let start: Option<String> = dates.iter().find(|s| s.contains('s')).cloned();
+        let due: Option<String> = dates.iter().find(|s| s.contains('d')).cloned();
+
+        if start.is_none() && due.is_none() {
+            None
+        } else {
+            Some(TaskDates { start, due })
+        }
     }
 
     pub fn remove_date(task: &str) -> String {
@@ -137,20 +155,22 @@ impl Task {
     pub fn from(task: &str, project: &str) -> Task {
         let status = TaskStatus::classify(task);
         let contexts = TaskContext::extract_contexts(task);
-        let start_date = Task::extract_date(task);
-        let description = Task::remove_date(&TaskContext::remove_context_string(&TaskStatus::remove_status_str(&task)));
+        let dates = Task::extract_dates(task);
+        let description = Task::remove_date(&TaskContext::remove_context_string(
+            &TaskStatus::remove_status_str(&task),
+        ));
 
         Task {
             project: String::from(project),
             description,
             status,
             contexts,
-            start_date
+            dates,
         }
     }
 
     pub fn has_noflags(&self) -> bool {
-        self.contexts.is_empty() && self.status == TaskStatus::NoStatus && self.start_date.is_none()
+        self.contexts.is_empty() && self.status == TaskStatus::NoStatus && self.dates.is_none()
     }
 
     pub fn ctx_line(&self) -> String {
