@@ -107,27 +107,45 @@ pub struct Task {
     pub project: String,
     pub status: TaskStatus,
     pub contexts: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub start_date: Option<String>
 }
 impl Task {
     pub fn re_any() -> Regex {
-        Regex::new(r"(#x[A-Za-z0-9]{1,})|@todo|@wip|@review").unwrap()
+        Regex::new(r"(#x[A-Za-z0-9]{1,})|(#d[0-9]{8})|@todo|@wip|@review").unwrap() }
+
+    pub fn re_date() -> Regex {
+        Regex::new(r"(#d[0-9]{8})").unwrap()
     }
 
-    // fn color_context(task: &str) -> String {
-    //     let noStatus = Task::re_context().replace(task, ).to_string();
-    //     Regex::new(r"\s+").unwrap().replace_all(&noStatus, " ").to_string()
-    // }
+    pub fn extract_date(task: &str) -> Option<String> {
+        Task::re_date()
+            .captures(task)
+            .map(|cap| cap.get(0).unwrap().as_str())
+            .map(|s| s.into())
+    }
+
+    pub fn remove_date(task: &str) -> String {
+        let no_dates = Task::re_date().replace_all(task, "").to_string();
+        Regex::new(r"\s+")
+            .unwrap()
+            .replace_all(&no_dates, " ")
+            .to_string()
+    }
 
     pub fn from(task: &str, project: &str) -> Task {
         let status = TaskStatus::classify(task);
         let contexts = TaskContext::extract_contexts(task);
-        let description = TaskContext::remove_context_string(&TaskStatus::remove_status_str(&task));
+        let start_date = Task::extract_date(task);
+        let description = Task::remove_date(&TaskContext::remove_context_string(&TaskStatus::remove_status_str(&task)));
 
         Task {
             project: String::from(project),
             description,
             status,
             contexts,
+            start_date
         }
     }
 
