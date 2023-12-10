@@ -105,7 +105,6 @@ impl ServerConfig {
 struct ConfigFile {
     default_dirs: Option<Vec<std::path::PathBuf>>,
     ignore_files: Option<Vec<String>>,
-    always_files: Option<Vec<String>>,
     default_not_context: Option<Vec<String>>,
     server: Option<ServerConfig>,
 }
@@ -114,7 +113,6 @@ impl ConfigFile {
     fn new() -> ConfigFile {
         return ConfigFile {
             default_dirs: None,
-            always_files: None,
             ignore_files: None,
             default_not_context: None,
             server: None,
@@ -204,7 +202,6 @@ fn main() {
     let statuses = args.statuses();
     let contexts = args.contexts();
     let ignore_files = config.ignore_files.unwrap_or(vec![]);
-    let always_files = config.always_files;
     let dirs = args
         .dir
         .map(|d| vec![d])
@@ -237,23 +234,24 @@ fn main() {
                 .map(|line| String::from(line))
                 .filter(|line| line.starts_with("- ") || line.starts_with("* "));
 
-            let has_always_flag = task_lines
-                .clone()
-                .next()
-                .unwrap_or("".into())
-                .contains("@always");
+            let first_line = task_lines.clone().next().unwrap_or("".into());
+            let gtd_task = if first_line.starts_with("- @gtd") {
+                Some(Task::from(&first_line, &file_name))
+            } else {
+                None
+            };
 
-            let is_always_file = always_files
-                .clone()
-                .map(|af| {
-                    af.iter()
-                        .any(|f| file_path.path().to_str().unwrap().contains(f))
-                })
-                .unwrap_or(false);
-
-            let tasks: Vec<Task> = if is_always_file || has_always_flag {
+            let tasks: Vec<Task> = if gtd_task.is_some() {
                 task_lines
-                    .map(|l| Task::from(&l, &file_name))
+                    .filter(|l| !l.starts_with("- @gtd"))
+                    .map(|l| {
+                        let mut t = Task::from(&l, &file_name);
+                            if t.status == TaskStatus::NoStatus {
+                            // Replace NoStatus with GTD task status
+                            t.status = (gtd_task.as_ref().unwrap().status).clone();
+                        }
+                        t
+                    })
                     .collect::<Vec<Task>>()
             } else {
                 task_lines
