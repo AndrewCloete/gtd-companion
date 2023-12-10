@@ -268,7 +268,7 @@ function App() {
   function filteredTasks(): Task[] {
     let ftasks = _.sortBy((t: Task) => t.dates?.due, tasks);
 
-    ftasks = _.filter((t: Task) => selectedStatuses.includes(t.status), ftasks);
+    ftasks = _.filter((t: Task) => selectedStatuses.includes(t.status) || !!t.dates, ftasks);
     function startDateFilter(t: Task) {
       if (!startDate || startDate.length != 8) {
         return true;
