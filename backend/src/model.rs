@@ -110,6 +110,36 @@ pub struct TaskDates {
     pub due: Option<String>,
 }
 
+impl TaskDates {
+    pub fn re_date() -> Regex {
+        Regex::new(r"(#[d,s][0-9]{8})").unwrap()
+    }
+
+    pub fn extract_dates(task: &str) -> Option<TaskDates> {
+        let dates: Vec<String> = TaskDates::re_date()
+            .captures_iter(task)
+            .map(|c| c.get(0).unwrap().as_str().into())
+            .collect();
+        let start: Option<String> = dates.iter().find(|s| s.contains('s')).cloned().map(|s| s.replace("#s", ""));
+        let due: Option<String> = dates.iter().find(|s| s.contains('d')).cloned().map(|s| s.replace("#d", ""));
+
+        if start.is_none() && due.is_none() {
+            None
+        } else {
+            Some(TaskDates { start, due })
+        }
+    }
+
+    pub fn remove_date(task: &str) -> String {
+        let no_dates = TaskDates::re_date().replace_all(task, "").to_string();
+        Regex::new(r"\s+")
+            .unwrap()
+            .replace_all(&no_dates, " ")
+            .to_string()
+    }
+
+}
+
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug, Hash)]
 pub struct Task {
     pub description: String,
@@ -122,41 +152,15 @@ pub struct Task {
 }
 impl Task {
     pub fn re_any() -> Regex {
+        // TODO: regex duplicated here.. not very DRY
         Regex::new(r"(#x[A-Za-z0-9]{1,})|(#[d,s][0-9]{8})|@todo|@wip|@review").unwrap()
-    }
-
-    pub fn re_date() -> Regex {
-        Regex::new(r"(#[d,s][0-9]{8})").unwrap()
-    }
-
-    pub fn extract_dates(task: &str) -> Option<TaskDates> {
-        let dates: Vec<String> = TaskContext::re_context()
-            .captures_iter(task)
-            .map(|c| c.get(0).unwrap().as_str().into())
-            .collect();
-        let start: Option<String> = dates.iter().find(|s| s.contains('s')).cloned();
-        let due: Option<String> = dates.iter().find(|s| s.contains('d')).cloned();
-
-        if start.is_none() && due.is_none() {
-            None
-        } else {
-            Some(TaskDates { start, due })
-        }
-    }
-
-    pub fn remove_date(task: &str) -> String {
-        let no_dates = Task::re_date().replace_all(task, "").to_string();
-        Regex::new(r"\s+")
-            .unwrap()
-            .replace_all(&no_dates, " ")
-            .to_string()
     }
 
     pub fn from(task: &str, project: &str) -> Task {
         let status = TaskStatus::classify(task);
         let contexts = TaskContext::extract_contexts(task);
-        let dates = Task::extract_dates(task);
-        let description = Task::remove_date(&TaskContext::remove_context_string(
+        let dates = TaskDates::extract_dates(task);
+        let description = TaskDates::remove_date(&TaskContext::remove_context_string(
             &TaskStatus::remove_status_str(&task),
         ));
 
