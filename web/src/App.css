@@ -7,7 +7,7 @@
 }
 
 .Status_Todo {
-  color: rgb(80, 89, 136); 
+  color: rgb(42, 109, 124); 
 }
 
 .Status_Wip {
@@ -15,7 +15,7 @@
 }
 
 .Status_Review {
-  color: rgb(119, 162, 97); 
+  color: rgb(89, 193, 91); 
 }
 
 .Status_NoStatus {
