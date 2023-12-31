@@ -27,6 +27,15 @@ function todayDate(): string {
   return rightNow.toISOString().slice(0, 10).replace(/-/g, "");
 }
 
+function noDashDateToUnixMs(noDashDate: string): number {
+  return Date.parse(noDashDate.slice(0, 4) + "-" + noDashDate.slice(4, 6) + "-" + noDashDate.slice(6, 8))
+}
+
+function noDashDaysDiff(d1: string, d2: string): number {
+  const diffMs = noDashDateToUnixMs(d1) - noDashDateToUnixMs(d2)
+  return diffMs / (1000 * 3600 * 24)
+}
+
 function toByProject(tasks: Task[]): ByProject {
   return tasks.reduce((results: ByProject, task: Task) => {
     const p = task.project;
@@ -152,7 +161,7 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
     if (!dueDate) {
       return null;
     }
-    let daysDiff = Number(dueDate) - Number(todayDate());
+    let daysDiff = noDashDaysDiff(dueDate, todayDate());
     function getDueClass(diff: Number) {
       if (daysDiff < 0) {
         return "DateDueOver";
@@ -181,12 +190,12 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
 
       {!props.hideContext
         ? props.task.contexts.map((c) => {
-            return (
-              <span className="Context" key={c}>
-                {c}{" "}
-              </span>
-            );
-          })
+          return (
+            <span className="Context" key={c}>
+              {c}{" "}
+            </span>
+          );
+        })
         : null}
     </div>
   );
