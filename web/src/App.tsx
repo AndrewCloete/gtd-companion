@@ -285,7 +285,7 @@ function App() {
       if (!t.dates || !t.dates.start) {
         return true;
       }
-      return Number(t.dates.start) < Number(startDate);
+      return Number(t.dates.start) <= Number(startDate);
     }
     ftasks = _.filter(startDateFilter, ftasks);
 
