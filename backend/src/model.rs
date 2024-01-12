@@ -112,7 +112,11 @@ pub struct TaskDates {
 
 impl TaskDates {
     pub fn re_date() -> Regex {
-        Regex::new(r"(@[d,s][0-9]{8})").unwrap()
+        Regex::new(r"(@[d,s,b][0-9]{8})").unwrap()
+    }
+
+    fn parse_date(dates: &Vec<String>, c: char) -> Option<String> {
+        dates.iter().find(|s| s.contains(c)).cloned().map(|s| s.replace(&format!("@{}", c), ""))
     }
 
     pub fn extract_dates(task: &str) -> Option<TaskDates> {
@@ -120,8 +124,9 @@ impl TaskDates {
             .captures_iter(task)
             .map(|c| c.get(0).unwrap().as_str().into())
             .collect();
-        let start: Option<String> = dates.iter().find(|s| s.contains('s')).cloned().map(|s| s.replace("@s", ""));
-        let due: Option<String> = dates.iter().find(|s| s.contains('d')).cloned().map(|s| s.replace("@d", ""));
+        let both: Option<String> = TaskDates::parse_date(&dates, 'b'); 
+        let start: Option<String> = both.clone().or(TaskDates::parse_date(&dates, 's')); 
+        let due: Option<String> = both.clone().or(TaskDates::parse_date(&dates, 'd').or(both)); 
 
         if start.is_none() && due.is_none() {
             None

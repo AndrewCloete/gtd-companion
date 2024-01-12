@@ -47,6 +47,7 @@ then update the `test` config to be shorter to parse and update the
 cargo run --bin gtd-server
 cargo run --bin gtd-cli -- -w true
 cargo run --bin gtd-cli -- -j true > /tmp/gtd-out.json
+cargo install --path .
 ```
 
 

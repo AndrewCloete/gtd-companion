@@ -246,9 +246,13 @@ fn main() {
                     .filter(|l| !l.starts_with("- @gtd"))
                     .map(|l| {
                         let mut t = Task::from(&l, &file_name);
-                            if t.status == TaskStatus::NoStatus {
+                        if t.status == TaskStatus::NoStatus {
                             // Replace NoStatus with GTD task status
                             t.status = (gtd_task.as_ref().unwrap().status).clone();
+                        }
+                        if gtd_task.is_some() {
+                            t.contexts
+                                .append(gtd_task.as_ref().unwrap().contexts.clone().as_mut());
                         }
                         t
                     })
