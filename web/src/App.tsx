@@ -106,6 +106,8 @@ function DatePicker(props: {
   setDate: (date: string) => void;
   hasDue: boolean;
   setHasDue: (hasDue: boolean) => void;
+  noDue: boolean;
+  setNoDue: (noDue: boolean) => void;
 }) {
   function handleChange(event: any) {
     props.setDate(event.target.value);
@@ -129,6 +131,14 @@ function DatePicker(props: {
           onChange={() => props.setHasDue(!props.hasDue)}
         />
         HasDue
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={props.noDue}
+          onChange={() => props.setNoDue(!props.noDue)}
+        />
+        NoDue
       </label>
     </div>
   );
@@ -274,6 +284,7 @@ function App() {
   );
   let [startDate, setStartDate] = useState<string>("");
   let [hasDue, setHasDue] = useState<boolean>(false);
+  let [noDue, setNoDue] = useState<boolean>(false);
   function filteredTasks(): Task[] {
     let ftasks = _.sortBy((t: Task) => t.dates?.due, tasks);
 
@@ -289,12 +300,14 @@ function App() {
     }
     ftasks = _.filter(startDateFilter, ftasks);
 
-    if (!hasDue) {
-      return ftasks;
+    if (hasDue) {
+      return  _.filter((t: Task) => !!t.dates?.due, ftasks);
     }
-
-    ftasks = _.filter((t: Task) => !!t.dates?.due, ftasks);
+    if (noDue) {
+      return  _.filter((t: Task) => !t.dates?.due, ftasks);
+    }
     return ftasks;
+
   }
   async function loadTasks() {
     const networkTasks = await getTasks();
@@ -318,6 +331,8 @@ function App() {
         setDate={setStartDate}
         hasDue={hasDue}
         setHasDue={setHasDue}
+        noDue={noDue}
+        setNoDue={setNoDue}
       ></DatePicker>
       <button onClick={() => setSelectedTab("ByProject")}>ByProject</button>
       <button onClick={() => setSelectedTab("ByContext")}>ByContext</button>
