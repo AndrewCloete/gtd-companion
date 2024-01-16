@@ -1,7 +1,7 @@
 use base64::{engine::general_purpose, Engine as _};
 use clap::Parser;
 use colored::*;
-use gtd_cli::model::{Project, Task, TaskStatus};
+use gtd_cli::model::{Project, Task, TaskStatus, TaskDates};
 use reqwest;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -242,18 +242,24 @@ fn main() {
             };
 
             let tasks: Vec<Task> = if gtd_task.is_some() {
+                let gt = gtd_task.as_ref().unwrap().clone();
                 task_lines
                     .filter(|l| !l.starts_with("- @gtd"))
                     .map(|l| {
                         let mut t = Task::from(&l, &file_name);
                         if t.status == TaskStatus::NoStatus {
                             // Replace NoStatus with GTD task status
-                            t.status = (gtd_task.as_ref().unwrap().status).clone();
+                            t.status = gt.status.clone();
                         }
-                        if gtd_task.is_some() {
-                            t.contexts
-                                .append(gtd_task.as_ref().unwrap().contexts.clone().as_mut());
-                        }
+
+                        let start = t.dates.as_ref().map(|d| d.start.clone()).flatten().or(gt.dates.as_ref().map(|d| d.start.clone()).flatten());
+                        let due = t.dates.as_ref().map(|d| d.due.clone()).flatten().or(gt.dates.as_ref().map(|d| d.due.clone()).flatten());
+                        t.dates = match (start, due) {
+                            (None, None) => None,
+                            (s, d) => Some(TaskDates{start:s, due: d})
+                        };
+                        t.contexts
+                            .append(gt.contexts.clone().as_mut());
                         t
                     })
                     .collect::<Vec<Task>>()
