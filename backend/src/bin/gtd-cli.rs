@@ -312,7 +312,7 @@ fn main() {
             serde_json::to_string_pretty(&flat_tasks(&projects)).unwrap()
         );
     } else {
-        display_projects(&projects);
+        //display_projects(&projects);
     }
     if args.web.unwrap_or(true) && config.server.is_some() {
         let tasks_string = serde_json::to_string_pretty(&flat_tasks(&projects)).unwrap();

@@ -126,7 +126,11 @@ impl TaskDates {
             .collect();
         let both: Option<String> = TaskDates::parse_date(&dates, 'b'); 
         let start: Option<String> = both.clone().or(TaskDates::parse_date(&dates, 's')); 
-        let due: Option<String> = both.clone().or(TaskDates::parse_date(&dates, 'd').or(both)); 
+        let due: Option<String> = both.clone().or(TaskDates::parse_date(&dates, 'd')); 
+        if both.is_some() {
+            println!("{:?}", both);
+        }
+
 
         if start.is_none() && due.is_none() {
             None
@@ -158,7 +162,7 @@ pub struct Task {
 impl Task {
     pub fn re_any() -> Regex {
         // TODO: regex duplicated here.. not very DRY
-        Regex::new(r"(#x[A-Za-z0-9]{1,})|(@[d,s][0-9]{8})|@todo|@wip|@review").unwrap()
+        Regex::new(r"(#x[A-Za-z0-9]{1,})|(@[d,s,b][0-9]{8})|@todo|@wip|@review").unwrap()
     }
 
     pub fn from(task: &str, project: &str) -> Task {
