@@ -127,10 +127,6 @@ impl TaskDates {
         let both: Option<String> = TaskDates::parse_date(&dates, 'b'); 
         let start: Option<String> = both.clone().or(TaskDates::parse_date(&dates, 's')); 
         let due: Option<String> = both.clone().or(TaskDates::parse_date(&dates, 'd')); 
-        if both.is_some() {
-            println!("{:?}", both);
-        }
-
 
         if start.is_none() && due.is_none() {
             None
