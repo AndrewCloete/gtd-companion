@@ -322,6 +322,7 @@ function App() {
   // Run when a new WebSocket message is received (lastJsonMessage)
   useEffect(() => {
     console.log(`Got a new message: ${lastJsonMessage}`);
+    loadTasks();
   }, [lastJsonMessage]);
 
   const handleKeyPress = useCallback(
