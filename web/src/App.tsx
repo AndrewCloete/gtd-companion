@@ -2,6 +2,8 @@ import "./App.css";
 import * as _ from "lodash/fp";
 
 import { useEffect, useState, useCallback } from "react";
+import useWebSocket, { ReadyState } from "react-use-websocket";
+
 import env from "./.env.json";
 
 type Tab = "ByProject" | "ByContext";
@@ -30,10 +32,10 @@ function todayDate(): string {
 function noDashDateToUnixMs(noDashDate: string): number {
   return Date.parse(
     noDashDate.slice(0, 4) +
-      "-" +
-      noDashDate.slice(4, 6) +
-      "-" +
-      noDashDate.slice(6, 8),
+    "-" +
+    noDashDate.slice(4, 6) +
+    "-" +
+    noDashDate.slice(6, 8),
   );
 }
 
@@ -217,12 +219,12 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
 
       {!props.hideContext
         ? props.task.contexts.map((c) => {
-            return (
-              <span className="Context" key={c}>
-                {c}{" "}
-              </span>
-            );
-          })
+          return (
+            <span className="Context" key={c}>
+              {c}{" "}
+            </span>
+          );
+        })
         : null}
     </div>
   );
@@ -302,6 +304,25 @@ function App() {
   let [startDate, setStartDate] = useState<string>("");
   let [hasDue, setHasDue] = useState<boolean>(false);
   let [noDue, setNoDue] = useState<boolean>(false);
+
+  const WS_URL = `${env.ws_scheme}://${env.host}/ws`;
+  const { lastJsonMessage, readyState } = useWebSocket(WS_URL, {
+    share: false,
+    shouldReconnect: () => true,
+  });
+
+  // Run when the connection state (readyState) changes
+  useEffect(() => {
+    console.log("Connection state changed");
+    if (readyState === ReadyState.OPEN) {
+      console.log("WS connected");
+    }
+  }, [readyState]);
+
+  // Run when a new WebSocket message is received (lastJsonMessage)
+  useEffect(() => {
+    console.log(`Got a new message: ${lastJsonMessage}`);
+  }, [lastJsonMessage]);
 
   const handleKeyPress = useCallback(
     (event: any) => {
