@@ -1,7 +1,7 @@
 import "./App.css";
 import * as _ from "lodash/fp";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import env from "./.env.json";
 
 type Tab = "ByProject" | "ByContext";
@@ -28,12 +28,18 @@ function todayDate(): string {
 }
 
 function noDashDateToUnixMs(noDashDate: string): number {
-  return Date.parse(noDashDate.slice(0, 4) + "-" + noDashDate.slice(4, 6) + "-" + noDashDate.slice(6, 8))
+  return Date.parse(
+    noDashDate.slice(0, 4) +
+      "-" +
+      noDashDate.slice(4, 6) +
+      "-" +
+      noDashDate.slice(6, 8),
+  );
 }
 
 function noDashDaysDiff(d1: string, d2: string): number {
-  const diffMs = noDashDateToUnixMs(d1) - noDashDateToUnixMs(d2)
-  return diffMs / (1000 * 3600 * 24)
+  const diffMs = noDashDateToUnixMs(d1) - noDashDateToUnixMs(d2);
+  return diffMs / (1000 * 3600 * 24);
 }
 
 function toByProject(tasks: Task[]): ByProject {
@@ -77,7 +83,7 @@ function StatusSelector(props: {
     return () => {
       if (has(status))
         props.setSelectedStatuses(
-          props.selectedStatuses.filter((s) => s != status)
+          props.selectedStatuses.filter((s) => s != status),
         );
       else props.setSelectedStatuses([...props.selectedStatuses, status]);
     };
@@ -153,11 +159,18 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
     return date.slice(0, 4) + "-" + date.slice(4, 6) + "-" + date.slice(6, 8);
   }
 
-  function TaskDate(props: { date: string | undefined; diff?: number, className: string }) {
+  function TaskDate(props: {
+    date: string | undefined;
+    diff?: number;
+    className: string;
+  }) {
     return props.date ? (
       <span>
         {" "}
-        <span className={props.className}>{displayDate(props.date)}{props.diff ? " (" + props.diff + ")" : null}</span>{" "}
+        <span className={props.className}>
+          {displayDate(props.date)}
+          {props.diff ? " (" + props.diff + ")" : null}
+        </span>{" "}
       </span>
     ) : null;
   }
@@ -182,7 +195,11 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
       return "DateDueToday";
     }
     return (
-      <TaskDate date={dueDate} className={getDueClass(daysDiff)} diff={daysDiff}></TaskDate>
+      <TaskDate
+        date={dueDate}
+        className={getDueClass(daysDiff)}
+        diff={daysDiff}
+      ></TaskDate>
     );
   }
 
@@ -200,12 +217,12 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
 
       {!props.hideContext
         ? props.task.contexts.map((c) => {
-          return (
-            <span className="Context" key={c}>
-              {c}{" "}
-            </span>
-          );
-        })
+            return (
+              <span className="Context" key={c}>
+                {c}{" "}
+              </span>
+            );
+          })
         : null}
     </div>
   );
@@ -280,15 +297,42 @@ function App() {
   let [tasks, setTasks] = useState<Task[]>([]);
   let [selectedTab, setSelectedTab] = useState<Tab>("ByProject");
   let [selectedStatuses, setSelectedStatuses] = useState<TaskStatus[]>(
-    statuses.map((s) => s)
+    statuses.map((s) => s),
   );
   let [startDate, setStartDate] = useState<string>("");
   let [hasDue, setHasDue] = useState<boolean>(false);
   let [noDue, setNoDue] = useState<boolean>(false);
+
+  const handleKeyPress = useCallback(
+    (event: any) => {
+      if (event.key == "r") {
+        loadTasks();
+      }
+      if (event.key == "d") {
+        setHasDue(!hasDue);
+      }
+      console.log(`Key pressed: ${event.key}`);
+    },
+    [hasDue],
+  );
+
+  useEffect(() => {
+    // attach the event listener
+    document.addEventListener("keydown", handleKeyPress);
+
+    // remove the event listener
+    return () => {
+      document.removeEventListener("keydown", handleKeyPress);
+    };
+  }, [handleKeyPress]);
+
   function filteredTasks(): Task[] {
     let ftasks = _.sortBy((t: Task) => t.dates?.due, tasks);
 
-    ftasks = _.filter((t: Task) => selectedStatuses.includes(t.status) || !!t.dates, ftasks);
+    ftasks = _.filter(
+      (t: Task) => selectedStatuses.includes(t.status) || !!t.dates,
+      ftasks,
+    );
     function startDateFilter(t: Task) {
       if (!startDate || startDate.length != 8) {
         return true;
@@ -301,13 +345,12 @@ function App() {
     ftasks = _.filter(startDateFilter, ftasks);
 
     if (hasDue) {
-      return  _.filter((t: Task) => !!t.dates?.due, ftasks);
+      return _.filter((t: Task) => !!t.dates?.due, ftasks);
     }
     if (noDue) {
-      return  _.filter((t: Task) => !t.dates?.due, ftasks);
+      return _.filter((t: Task) => !t.dates?.due, ftasks);
     }
     return ftasks;
-
   }
   async function loadTasks() {
     const networkTasks = await getTasks();
