@@ -5,7 +5,8 @@ import { useEffect, useState, useCallback } from "react";
 
 import env from "./.env.json";
 
-type Tab = "ByProject" | "ByContext";
+const tabs = ["Flat", "ByProject", "ByContext"] as const;
+type Tab = (typeof tabs)[number];
 
 const statuses = ["Todo", "Wip", "NoStatus", "Review"] as const;
 type TaskStatus = (typeof statuses)[number];
@@ -31,10 +32,10 @@ function todayDate(): string {
 function noDashDateToUnixMs(noDashDate: string): number {
   return Date.parse(
     noDashDate.slice(0, 4) +
-    "-" +
-    noDashDate.slice(4, 6) +
-    "-" +
-    noDashDate.slice(6, 8),
+      "-" +
+      noDashDate.slice(4, 6) +
+      "-" +
+      noDashDate.slice(6, 8),
   );
 }
 
@@ -218,12 +219,12 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
 
       {!props.hideContext
         ? props.task.contexts.map((c) => {
-          return (
-            <span className="Context" key={c}>
-              {c}{" "}
-            </span>
-          );
-        })
+            return (
+              <span className="Context" key={c}>
+                {c}{" "}
+              </span>
+            );
+          })
         : null}
     </div>
   );
@@ -272,6 +273,20 @@ function CompByContexts(props: { tasks: Task[] }) {
           <div key={context}>
             <div className="Context">{context}</div>
             <CompByProjects tasks={subTasks}></CompByProjects>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Flat(props: { tasks: Task[] }) {
+  return (
+    <div>
+      {props.tasks.map((task: Task) => {
+        return (
+          <div key={task.description}>
+            <CompByProjects tasks={[task]}></CompByProjects>
           </div>
         );
       })}
@@ -392,14 +407,20 @@ function App() {
         noDue={noDue}
         setNoDue={setNoDue}
       ></DatePicker>
-      <button onClick={() => setSelectedTab("ByProject")}>ByProject</button>
-      <button onClick={() => setSelectedTab("ByContext")}>ByContext</button>
+      {tabs.map((t) => {
+        return <button onClick={() => setSelectedTab(t)}>{t}</button>;
+      })}
       <button onClick={() => loadTasks()}>Load</button>
-      {selectedTab == "ByProject" ? (
-        <CompByProjects tasks={filteredTasks()}></CompByProjects>
-      ) : (
-        <CompByContexts tasks={filteredTasks()}></CompByContexts>
-      )}
+      {((tab: Tab) => {
+        switch (tab) {
+          case "ByProject":
+            return <CompByProjects tasks={filteredTasks()}></CompByProjects>;
+          case "ByContext":
+            return <CompByContexts tasks={filteredTasks()}></CompByContexts>;
+          default:
+            return <Flat tasks={filteredTasks()}></Flat>;
+        }
+      })(selectedTab)}
     </div>
   );
 }
