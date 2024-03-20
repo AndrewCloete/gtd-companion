@@ -319,22 +319,38 @@ function App() {
   let [hasDue, setHasDue] = useState<boolean>(false);
   let [noDue, setNoDue] = useState<boolean>(false);
 
-  useEffect(() => {
-    loadTasks();
+  function connect() {
     const WS_URL = `${env.ws_scheme}://${env.host}/ws`;
-    const socket = new WebSocket(WS_URL);
-    // Connection opened
-    socket.addEventListener("open", (event) => {
-      socket.send("Connection established");
+    const ws = new WebSocket(WS_URL);
+    ws.addEventListener("open", (event) => {
+      ws.send("Connection established");
     });
 
-    // Listen for messages
-    socket.addEventListener("message", (event) => {
+    ws.addEventListener("message", (event) => {
       console.log("Message from server ", event.data);
       loadTasks();
     });
 
-    return; // () => socket.close();
+    ws.addEventListener("close", (event) => {
+      console.log(
+        "Socket is closed. Reconnect will be attempted in 1 second.",
+        event.reason,
+      );
+      setTimeout(function () {
+        connect();
+      }, 1000);
+    });
+
+    ws.addEventListener("error", (event) => {
+      console.error("Socket encountered error: ", event, "Closing socket");
+      ws.close();
+    });
+  }
+
+  useEffect(() => {
+    loadTasks();
+    connect();
+    return;
   }, []);
 
   const handleKeyPress = useCallback(
@@ -345,7 +361,6 @@ function App() {
       if (event.key == "d") {
         setHasDue(!hasDue);
       }
-      console.log(`Key pressed: ${event.key}`);
     },
     [hasDue],
   );
