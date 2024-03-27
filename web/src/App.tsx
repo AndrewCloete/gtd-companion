@@ -229,6 +229,7 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
 
   return (
     <div className="CompTask">
+      <DueDate task={props.task}></DueDate>
       <div className="TextCell">
         <CompStatus
           status={props.task.status}
@@ -248,7 +249,6 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
             })
           : null}
       </span>
-      <DueDate task={props.task}></DueDate>
       <StartDate task={props.task}></StartDate>
     </div>
   );

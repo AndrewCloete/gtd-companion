@@ -38,6 +38,7 @@
 .TextCell {
   display: inline-block;
   width: 20em;
+  padding-left: 5px;
 }
 .DateStart {
   background-color: rgb(42, 70, 94);
