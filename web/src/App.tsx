@@ -3,7 +3,7 @@ import * as _ from "lodash/fp";
 
 import { useEffect, useState, useCallback } from "react";
 
-import env from "./.env.prod.json";
+import env from "./.env.json";
 
 const tabs = ["Flat", "ByProject", "ByContext"] as const;
 type Tab = (typeof tabs)[number];
@@ -32,16 +32,16 @@ function todayDate(): string {
 function noDashDateToUnixMs(noDashDate: string): number {
   return Date.parse(
     noDashDate.slice(0, 4) +
-      "-" +
-      noDashDate.slice(4, 6) +
-      "-" +
-      noDashDate.slice(6, 8)
+    "-" +
+    noDashDate.slice(4, 6) +
+    "-" +
+    noDashDate.slice(6, 8),
   );
 }
 
 function noDashDaysDiff(
   d1: string | undefined,
-  d2: string
+  d2: string,
 ): number | undefined {
   if (!d1) {
     return;
@@ -98,7 +98,7 @@ function StatusSelector(props: {
     return () => {
       if (has(status))
         props.setSelectedStatuses(
-          props.selectedStatuses.filter((s) => s != status)
+          props.selectedStatuses.filter((s) => s != status),
         );
       else props.setSelectedStatuses([...props.selectedStatuses, status]);
     };
@@ -239,14 +239,14 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
       <span className="ContextCell">
         {!props.hideContext
           ? props.task.contexts.map((c) => {
-              return (
-                <span>
-                  <span className="Context" key={c}>
-                    {c.replace("#x", "")}
-                  </span>{" "}
-                </span>
-              );
-            })
+            return (
+              <span>
+                <span className="Context" key={c}>
+                  {c.replace("#x", "")}
+                </span>{" "}
+              </span>
+            );
+          })
           : null}
       </span>
       <StartDate task={props.task}></StartDate>
@@ -357,7 +357,7 @@ function App() {
   let [tasks, setTasks] = useState<Task[]>([]);
   let [selectedTab, setSelectedTab] = useState<Tab>("ByProject");
   let [selectedStatuses, setSelectedStatuses] = useState<TaskStatus[]>(
-    statuses.map((s) => s)
+    statuses.map((s) => s),
   );
   let [startDate, setStartDate] = useState<string>("");
   let [hasDue, setHasDue] = useState<boolean>(false);
@@ -378,9 +378,9 @@ function App() {
     ws.addEventListener("close", (event) => {
       console.log(
         "Socket is closed. Reconnect will be attempted in 1 second.",
-        event.reason
+        event.reason,
       );
-      setTimeout(function () {
+      setTimeout(function() {
         connect();
       }, 1000);
     });
@@ -406,7 +406,7 @@ function App() {
         setHasDue(!hasDue);
       }
     },
-    [hasDue]
+    [hasDue],
   );
 
   useEffect(() => {
@@ -424,7 +424,7 @@ function App() {
 
     ftasks = _.filter(
       (t: Task) => selectedStatuses.includes(t.status) || !!t.dates,
-      ftasks
+      ftasks,
     );
     function startDateFilter(t: Task) {
       if (!startDate || startDate.length != 8) {
