@@ -3,7 +3,7 @@ import * as _ from "lodash/fp";
 
 import { useEffect, useState, useCallback } from "react";
 
-import env from "./.env.json";
+import env from "./.env.prod.json";
 
 const tabs = ["Flat", "ByProject", "ByContext"] as const;
 type Tab = (typeof tabs)[number];
@@ -35,11 +35,17 @@ function noDashDateToUnixMs(noDashDate: string): number {
       "-" +
       noDashDate.slice(4, 6) +
       "-" +
-      noDashDate.slice(6, 8),
+      noDashDate.slice(6, 8)
   );
 }
 
-function noDashDaysDiff(d1: string, d2: string): number {
+function noDashDaysDiff(
+  d1: string | undefined,
+  d2: string
+): number | undefined {
+  if (!d1) {
+    return;
+  }
   const diffMs = noDashDateToUnixMs(d1) - noDashDateToUnixMs(d2);
   return diffMs / (1000 * 3600 * 24);
 }
@@ -58,6 +64,13 @@ function toByProject(tasks: Task[]): ByProject {
 
 function toByContext(tasks: Task[]): ByContext {
   return tasks.reduce((results: ByContext, task: Task) => {
+    if (task.contexts.length == 0) {
+      if (!results.has("none")) {
+        results.set("none", []);
+      }
+      //@ts-ignore
+      results.get("none").push(task);
+    }
     task.contexts.forEach((c) => {
       if (!results.has(c)) {
         results.set(c, []);
@@ -85,7 +98,7 @@ function StatusSelector(props: {
     return () => {
       if (has(status))
         props.setSelectedStatuses(
-          props.selectedStatuses.filter((s) => s != status),
+          props.selectedStatuses.filter((s) => s != status)
         );
       else props.setSelectedStatuses([...props.selectedStatuses, status]);
     };
@@ -153,11 +166,19 @@ function DatePicker(props: {
 }
 
 function CompStatus(props: { status: string; text: string }) {
-  return <span className={"Status_" + props.status}>{props.text}</span>;
+  function cleanText(txt: string) {
+    return txt.replace("- ", "").replace("* ", "");
+  }
+  return (
+    <span className={"Status_" + props.status}>{cleanText(props.text)}</span>
+  );
 }
 
 function CompTask(props: { task: Task; hideContext?: boolean }) {
-  function displayDate(date: string) {
+  function displayDate(date: string | undefined) {
+    if (!date) {
+      return "";
+    }
     return date.slice(0, 4) + "-" + date.slice(4, 6) + "-" + date.slice(6, 8);
   }
 
@@ -166,15 +187,16 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
     diff?: number;
     className: string;
   }) {
-    return props.date ? (
+    return (
       <span>
         {" "}
-        <span className={props.className}>
+        <span className={props.className + " TaskDate"}>
           {displayDate(props.date)}
           {props.diff ? " (" + props.diff + ")" : null}
         </span>{" "}
       </span>
-    ) : null;
+    );
+    // return props.date ?  : null;
   }
   function StartDate(props: { task: Task }) {
     return (
@@ -183,15 +205,15 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
   }
   function DueDate(props: { task: Task }) {
     let dueDate = props.task.dates?.due;
-    if (!dueDate) {
-      return null;
-    }
     let daysDiff = noDashDaysDiff(dueDate, todayDate());
-    function getDueClass(diff: Number) {
-      if (daysDiff < 0) {
+    function getDueClass(diff: number | undefined) {
+      if (diff == undefined) {
+        return "DateDueNone";
+      }
+      if (diff < 0) {
         return "DateDueOver";
       }
-      if (daysDiff > 0) {
+      if (diff > 0) {
         return "DateDueFuture";
       }
       return "DateDueToday";
@@ -206,26 +228,28 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
   }
 
   return (
-    <div>
-      <span>
+    <div className="CompTask">
+      <div className="TextCell">
         <CompStatus
           status={props.task.status}
           text={props.task.description}
         ></CompStatus>
+      </div>
+      <span className="ContextCell">
+        {!props.hideContext
+          ? props.task.contexts.map((c) => {
+              return (
+                <span>
+                  <span className="Context" key={c}>
+                    {c.replace("#x", "")}
+                  </span>{" "}
+                </span>
+              );
+            })
+          : null}
       </span>
-
-      <StartDate task={props.task}></StartDate>
       <DueDate task={props.task}></DueDate>
-
-      {!props.hideContext
-        ? props.task.contexts.map((c) => {
-            return (
-              <span className="Context" key={c}>
-                {c}{" "}
-              </span>
-            );
-          })
-        : null}
+      <StartDate task={props.task}></StartDate>
     </div>
   );
 }
@@ -280,12 +304,32 @@ function CompByContexts(props: { tasks: Task[] }) {
   );
 }
 
+function tasksBy_Project(tasks: Task[]): Task[] {
+  return _.sortBy((t: Task) => t.project, tasks);
+}
+function tasksBy_Context(tasks: Task[]): Task[] {
+  let expanded = tasks.flatMap((t) => {
+    if (t.contexts.length == 0) {
+      return [t];
+    }
+    return t.contexts.map((c) => {
+      let copy = _.cloneDeep(t);
+      copy.contexts = [c];
+      return copy;
+    });
+  });
+  return _.sortBy((t: Task) => t.contexts[0], expanded);
+}
+function tasksBy_Due(tasks: Task[]): Task[] {
+  return _.sortBy((t: Task) => t.dates?.due, tasks);
+}
+
 function Flat(props: { tasks: Task[] }) {
   return (
     <div>
       {props.tasks.map((task: Task) => {
         return (
-          <div key={task.description}>
+          <div key={task.description + task.contexts.join()}>
             <CompByProjects tasks={[task]}></CompByProjects>
           </div>
         );
@@ -313,7 +357,7 @@ function App() {
   let [tasks, setTasks] = useState<Task[]>([]);
   let [selectedTab, setSelectedTab] = useState<Tab>("ByProject");
   let [selectedStatuses, setSelectedStatuses] = useState<TaskStatus[]>(
-    statuses.map((s) => s),
+    statuses.map((s) => s)
   );
   let [startDate, setStartDate] = useState<string>("");
   let [hasDue, setHasDue] = useState<boolean>(false);
@@ -334,7 +378,7 @@ function App() {
     ws.addEventListener("close", (event) => {
       console.log(
         "Socket is closed. Reconnect will be attempted in 1 second.",
-        event.reason,
+        event.reason
       );
       setTimeout(function () {
         connect();
@@ -362,7 +406,7 @@ function App() {
         setHasDue(!hasDue);
       }
     },
-    [hasDue],
+    [hasDue]
   );
 
   useEffect(() => {
@@ -380,7 +424,7 @@ function App() {
 
     ftasks = _.filter(
       (t: Task) => selectedStatuses.includes(t.status) || !!t.dates,
-      ftasks,
+      ftasks
     );
     function startDateFilter(t: Task) {
       if (!startDate || startDate.length != 8) {

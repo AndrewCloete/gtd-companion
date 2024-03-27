@@ -3,41 +3,58 @@
   color: whitesmoke;
   font-family: monospace;
   min-height: 100vh;
-  
 }
 
 .Status_Todo {
-  color: rgb(42, 109, 124); 
+  color: rgb(42, 109, 124);
 }
 
 .Status_Wip {
-  color: rgb(253, 179, 127); 
+  color: rgb(255, 203, 147);
 }
 
 .Status_Review {
-  color: rgb(89, 193, 91); 
+  color: rgb(89, 193, 91);
 }
 
 .Status_NoStatus {
-  color: rgb(73, 73, 73);
+  color: rgb(90, 90, 90);
 }
 
 .Context {
   background-color: rgb(81, 81, 97);
 }
 
+.TaskDate {
+  display: inline-block;
+  width: 10em;
+}
+
+.ContextCell {
+  display: inline-block;
+  width: 5em;
+}
+
+.TextCell {
+  display: inline-block;
+  width: 20em;
+}
 .DateStart {
   background-color: rgb(42, 70, 94);
 }
 
 .DateDueFuture {
-  background-color: rgb(48, 106, 67);
+  background-color: rgb(38, 82, 52);
 }
 .DateDueToday {
-  background-color: rgb(144, 144, 20);
+  background-color: rgb(108, 108, 32);
 }
 .DateDueOver {
-  background-color: rgb(146, 19, 19);
+  background-color: rgb(97, 43, 43);
+}
+
+.DateDueNone {
+  background-color: hsla(0, 0%, 100%, 0);
 }
 
 .Project_text {
@@ -59,10 +76,18 @@
   color: #61dafb;
 }
 
+.CompTask {
+  display: flex;
+  border-top: #2c6170;
+  border-style:inset;
+  border-width: 1px 0px 0px 0px;
+  padding: 1px;
+}
+
 .project {
   display: flex;
   border-top: #2c6170;
-  border-style: dashed;
+  border-style: dotted;
   border-width: 1px 0px 0px 0px;
   padding: 2px;
 }
