@@ -80,7 +80,7 @@
 .CompTask {
   display: flex;
   border-top: #2c6170;
-  border-style:inset;
+  border-style: inset;
   border-width: 1px 0px 0px 0px;
   padding: 1px;
 }
@@ -93,7 +93,7 @@
   padding: 2px;
 }
 
-.project:hover {
+.CompTask:hover {
   background-color: #131519;
 }
 
