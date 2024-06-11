@@ -32,10 +32,10 @@ function todayDate(): string {
 function noDashDateToUnixMs(noDashDate: string): number {
   return Date.parse(
     noDashDate.slice(0, 4) +
-    "-" +
-    noDashDate.slice(4, 6) +
-    "-" +
-    noDashDate.slice(6, 8),
+      "-" +
+      noDashDate.slice(4, 6) +
+      "-" +
+      noDashDate.slice(6, 8),
   );
 }
 
@@ -239,14 +239,14 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
       <span className="ContextCell">
         {!props.hideContext
           ? props.task.contexts.map((c) => {
-            return (
-              <span>
-                <span className="Context" key={c}>
-                  {c.replace("#x", "")}
-                </span>{" "}
-              </span>
-            );
-          })
+              return (
+                <span>
+                  <span className="Context" key={c}>
+                    {c.replace("#x", "")}
+                  </span>{" "}
+                </span>
+              );
+            })
           : null}
       </span>
       <StartDate task={props.task}></StartDate>
@@ -355,11 +355,11 @@ async function getTasks(): Promise<Task[]> {
 
 function App() {
   let [tasks, setTasks] = useState<Task[]>([]);
-  let [selectedTab, setSelectedTab] = useState<Tab>("ByProject");
+  let [selectedTab, setSelectedTab] = useState<Tab>("Flat");
   let [selectedStatuses, setSelectedStatuses] = useState<TaskStatus[]>(
     statuses.map((s) => s),
   );
-  let [startDate, setStartDate] = useState<string>("");
+  let [startDate, setStartDate] = useState<string>();
   let [hasDue, setHasDue] = useState<boolean>(false);
   let [noDue, setNoDue] = useState<boolean>(false);
 
@@ -380,7 +380,7 @@ function App() {
         "Socket is closed. Reconnect will be attempted in 1 second.",
         event.reason,
       );
-      setTimeout(function() {
+      setTimeout(function () {
         connect();
       }, 1000);
     });
