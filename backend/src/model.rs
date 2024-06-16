@@ -23,6 +23,7 @@ impl ServerConfig {
 #[derive(Debug, Deserialize, Clone)]
 pub struct ConfigFile {
     pub default_dirs: Option<Vec<std::path::PathBuf>>,
+    pub inbox_path: Option<String>,
     pub ignore_files: Option<Vec<String>>,
     pub default_not_context: Option<Vec<String>>,
     pub server: Option<ServerConfig>,
@@ -32,6 +33,7 @@ impl ConfigFile {
     fn new() -> ConfigFile {
         return ConfigFile {
             default_dirs: None,
+            inbox_path: None,
             ignore_files: None,
             default_not_context: None,
             server: None,
