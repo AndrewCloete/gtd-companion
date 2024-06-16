@@ -2,7 +2,7 @@ use axum::{
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
     extract::State,
     http::StatusCode,
-    response::{IntoResponse, Response},
+    response::IntoResponse,
     routing::get,
     Json, Router,
 };
@@ -10,10 +10,7 @@ use tokio::sync::watch::{self, Sender};
 
 use tower_http::cors::CorsLayer;
 
-use std::{
-    net::ToSocketAddrs,
-    sync::{Arc, RwLock},
-};
+use std::sync::{Arc, RwLock};
 
 use gtd_cli::model::Task;
 use tracing::Level;

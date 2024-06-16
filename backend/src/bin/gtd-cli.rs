@@ -1,11 +1,8 @@
-use base64::{engine::general_purpose, Engine as _};
 use clap::Parser;
 use colored::*;
-use gtd_cli::model::{Project, Task, TaskStatus, TaskDates};
+use gtd_cli::model::{ConfigFile, Project, Task, TaskDates, TaskStatus};
 use reqwest;
-use serde::Deserialize;
 use std::collections::HashMap;
-use std::env::var;
 use std::fs;
 use walkdir::{DirEntry, WalkDir};
 
@@ -87,39 +84,6 @@ fn is_hidden(entry: &DirEntry) -> bool {
         .unwrap_or(false)
 }
 
-#[derive(Debug, Deserialize, Clone)]
-struct ServerConfig {
-    host: String,
-    user: String,
-    psw: String,
-}
-
-impl ServerConfig {
-    pub fn basic_token(&self) -> String {
-        let merge = format!("{}:{}", &self.user, &self.psw);
-        general_purpose::URL_SAFE.encode(merge)
-    }
-}
-
-#[derive(Debug, Deserialize, Clone)]
-struct ConfigFile {
-    default_dirs: Option<Vec<std::path::PathBuf>>,
-    ignore_files: Option<Vec<String>>,
-    default_not_context: Option<Vec<String>>,
-    server: Option<ServerConfig>,
-}
-
-impl ConfigFile {
-    fn new() -> ConfigFile {
-        return ConfigFile {
-            default_dirs: None,
-            ignore_files: None,
-            default_not_context: None,
-            server: None,
-        };
-    }
-}
-
 fn display_projects(projects: &Vec<Project>) {
     for proj in projects {
         let proj_line = format!("-- {} --", proj.file_name);
@@ -190,15 +154,8 @@ fn print_by_context(projects: &Vec<Project>) {
 }
 
 fn main() {
-    let default_config_name = ".gtd.json";
+    let config = ConfigFile::read();
     let args = Args::parse();
-    let home_path = var("HOME").expect("$HOME not defined");
-    let config = match fs::read_to_string(format!("{}/{}", home_path, default_config_name)) {
-        Err(_) => ConfigFile::new(),
-        Ok(content) => serde_json::from_str(&content).expect("Config was not well formatted"),
-    };
-    println!("{:?}", config);
-
     let statuses = args.statuses();
     let contexts = args.contexts();
     let ignore_files = config.ignore_files.unwrap_or(vec![]);
@@ -252,14 +209,21 @@ fn main() {
                             t.status = gt.status.clone();
                         }
 
-                        let start = t.dates.as_ref().map(|d| d.start.clone()).flatten().or(gt.dates.as_ref().map(|d| d.start.clone()).flatten());
-                        let due = t.dates.as_ref().map(|d| d.due.clone()).flatten().or(gt.dates.as_ref().map(|d| d.due.clone()).flatten());
+                        let start = t.dates.as_ref().map(|d| d.start.clone()).flatten().or(gt
+                            .dates
+                            .as_ref()
+                            .map(|d| d.start.clone())
+                            .flatten());
+                        let due = t.dates.as_ref().map(|d| d.due.clone()).flatten().or(gt
+                            .dates
+                            .as_ref()
+                            .map(|d| d.due.clone())
+                            .flatten());
                         t.dates = match (start, due) {
                             (None, None) => None,
-                            (s, d) => Some(TaskDates{start:s, due: d})
+                            (s, d) => Some(TaskDates { start: s, due: d }),
                         };
-                        t.contexts
-                            .append(gt.contexts.clone().as_mut());
+                        t.contexts.append(gt.contexts.clone().as_mut());
                         t
                     })
                     .collect::<Vec<Task>>()

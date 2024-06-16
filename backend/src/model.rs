@@ -1,7 +1,52 @@
+use base64::{engine::general_purpose, Engine as _};
 use colored::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::env::var;
+use std::fs;
 use std::str::FromStr;
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct ServerConfig {
+    pub host: String,
+    user: String,
+    psw: String,
+}
+
+impl ServerConfig {
+    pub fn basic_token(&self) -> String {
+        let merge = format!("{}:{}", &self.user, &self.psw);
+        general_purpose::URL_SAFE.encode(merge)
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct ConfigFile {
+    pub default_dirs: Option<Vec<std::path::PathBuf>>,
+    pub ignore_files: Option<Vec<String>>,
+    pub default_not_context: Option<Vec<String>>,
+    pub server: Option<ServerConfig>,
+}
+
+impl ConfigFile {
+    fn new() -> ConfigFile {
+        return ConfigFile {
+            default_dirs: None,
+            ignore_files: None,
+            default_not_context: None,
+            server: None,
+        };
+    }
+
+    pub fn read() -> ConfigFile {
+        let default_config_name = ".gtd.json";
+        let home_path = var("HOME").expect("$HOME not defined");
+        match fs::read_to_string(format!("{}/{}", home_path, default_config_name)) {
+            Err(_) => ConfigFile::new(),
+            Ok(content) => serde_json::from_str(&content).expect("Config was not well formatted"),
+        }
+    }
+}
 
 use regex::Regex;
 #[derive(Copy, Serialize, Deserialize, Clone, PartialEq, Eq, Debug, Hash)]
@@ -116,7 +161,11 @@ impl TaskDates {
     }
 
     fn parse_date(dates: &Vec<String>, c: char) -> Option<String> {
-        dates.iter().find(|s| s.contains(c)).cloned().map(|s| s.replace(&format!("@{}", c), ""))
+        dates
+            .iter()
+            .find(|s| s.contains(c))
+            .cloned()
+            .map(|s| s.replace(&format!("@{}", c), ""))
     }
 
     pub fn extract_dates(task: &str) -> Option<TaskDates> {
@@ -124,9 +173,9 @@ impl TaskDates {
             .captures_iter(task)
             .map(|c| c.get(0).unwrap().as_str().into())
             .collect();
-        let both: Option<String> = TaskDates::parse_date(&dates, 'b'); 
-        let start: Option<String> = both.clone().or(TaskDates::parse_date(&dates, 's')); 
-        let due: Option<String> = both.clone().or(TaskDates::parse_date(&dates, 'd')); 
+        let both: Option<String> = TaskDates::parse_date(&dates, 'b');
+        let start: Option<String> = both.clone().or(TaskDates::parse_date(&dates, 's'));
+        let due: Option<String> = both.clone().or(TaskDates::parse_date(&dates, 'd'));
 
         if start.is_none() && due.is_none() {
             None
@@ -142,7 +191,6 @@ impl TaskDates {
             .replace_all(&no_dates, " ")
             .to_string()
     }
-
 }
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug, Hash)]
