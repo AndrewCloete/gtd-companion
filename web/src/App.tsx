@@ -4,15 +4,23 @@ import * as _ from "lodash/fp";
 import { useEffect, useState, useCallback } from "react";
 
 import env from "./.env.json";
+import { F } from "lodash/fp";
+import { start } from "repl";
 
 const tabs = ["Flat", "ByProject", "ByContext"] as const;
 type Tab = (typeof tabs)[number];
 
 const statuses = ["Todo", "Wip", "NoStatus", "Review"] as const;
 type TaskStatus = (typeof statuses)[number];
+const statusRank: Record<TaskStatus, Number> = {
+  Wip: 1,
+  Review: 2,
+  Todo: 3,
+  NoStatus: 4,
+};
 type Project = string;
 type Context = string;
-type TaskDates = { start: string; due: string };
+type TaskDates = { start: string; due: string; visible: string };
 type Task = {
   description: string;
   project: Project;
@@ -29,21 +37,46 @@ function todayDate(): string {
   return rightNow.toISOString().slice(0, 10).replace(/-/g, "");
 }
 
+function getDayOfWeek(noDashDate: string | undefined): string {
+  if (!noDashDate) {
+    return "";
+  }
+  const date = new Date(noDashDateToUnixMs(noDashDate));
+  const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  console.log(date);
+  return daysOfWeek[date.getDay()];
+}
+
+function isDow(noDashDate: string | undefined, dayNumber: Number): boolean {
+  if (!noDashDate) {
+    return false;
+  }
+  const date = new Date(noDashDateToUnixMs(noDashDate));
+  return date.getDay() == dayNumber;
+}
+
+function isSat(noDashDate: string | undefined): boolean {
+  return isDow(noDashDate, 6);
+}
+function isSun(noDashDate: string | undefined): boolean {
+  return isDow(noDashDate, 0);
+}
+
 function noDashDateToUnixMs(noDashDate: string): number {
   return Date.parse(
     noDashDate.slice(0, 4) +
-      "-" +
-      noDashDate.slice(4, 6) +
-      "-" +
-      noDashDate.slice(6, 8),
+    "-" +
+    noDashDate.slice(4, 6) +
+    "-" +
+    noDashDate.slice(6, 8),
   );
 }
 
 function noDashDaysDiff(
   d1: string | undefined,
-  d2: string,
+  d2: string | undefined,
 ): number | undefined {
-  if (!d1) {
+  if (!d1 || !d2) {
     return;
   }
   const diffMs = noDashDateToUnixMs(d1) - noDashDateToUnixMs(d2);
@@ -82,9 +115,11 @@ function toByContext(tasks: Task[]): ByContext {
   }, new Map());
 }
 
-// function toSortByStatus(tasks: Task[]): Task[] {
-//   return _.sortBy((t: Task) => {t.status}, tasks)
-// }
+function toSortByStatus(tasks: Task[]): Task[] {
+  return _.sortBy((t: Task) => {
+    return statusRank[t.status];
+  }, tasks);
+}
 
 function StatusSelector(props: {
   selectedStatuses: TaskStatus[];
@@ -123,7 +158,7 @@ function StatusSelector(props: {
 }
 
 function DatePicker(props: {
-  date: string;
+  date: string | undefined;
   setDate: (date: string) => void;
   hasDue: boolean;
   setHasDue: (hasDue: boolean) => void;
@@ -192,32 +227,57 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
         {" "}
         <span className={props.className + " TaskDate"}>
           {displayDate(props.date)}
-          {props.diff ? " (" + props.diff + ")" : null}
+          <span className="SmallDate">
+            {" "}
+            {getDayOfWeek(props.date)}
+            {props.diff ? " (" + props.diff + ")" : null}
+          </span>
         </span>{" "}
       </span>
     );
     // return props.date ?  : null;
   }
+  function getDueClass(diff: number | undefined) {
+    if (diff == undefined) {
+      return "DateDueNone";
+    }
+    if (diff < 0) {
+      return "DateDueOver";
+    }
+    if (diff > 0) {
+      return "DateDueFuture";
+    }
+    return "DateDueToday";
+  }
   function StartDate(props: { task: Task }) {
+    let startDate = props.task.dates?.start;
+    let daysDiff = noDashDaysDiff(startDate, todayDate());
     return (
-      <TaskDate date={props.task.dates?.start} className="DateStart"></TaskDate>
+      <TaskDate
+        date={startDate}
+        className={getDueClass(daysDiff)}
+        diff={daysDiff}
+      ></TaskDate>
     );
+  }
+  function VisibleDate(props: { task: Task }) {
+    return (
+      <TaskDate
+        date={props.task.dates?.visible}
+        className="DateStart"
+      ></TaskDate>
+    );
+  }
+  function Duration(props: { task: Task }) {
+    let daysDiff = noDashDaysDiff(
+      props.task.dates?.due,
+      props.task.dates?.start,
+    );
+    return <div className="DurationCell">{daysDiff}</div>;
   }
   function DueDate(props: { task: Task }) {
     let dueDate = props.task.dates?.due;
     let daysDiff = noDashDaysDiff(dueDate, todayDate());
-    function getDueClass(diff: number | undefined) {
-      if (diff == undefined) {
-        return "DateDueNone";
-      }
-      if (diff < 0) {
-        return "DateDueOver";
-      }
-      if (diff > 0) {
-        return "DateDueFuture";
-      }
-      return "DateDueToday";
-    }
     return (
       <TaskDate
         date={dueDate}
@@ -227,8 +287,21 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
     );
   }
 
+  function dowClass(): string {
+    const firstDate = firstTaskDate(props.task.dates);
+    if (isSat(firstDate)) {
+      return "DowSat";
+    }
+    if (isSun(firstDate)) {
+      return "DowSun";
+    }
+    return "Dow";
+  }
+
   return (
-    <div className="CompTask">
+    <div className={"CompTask " + dowClass()}>
+      <StartDate task={props.task}></StartDate>
+      <Duration task={props.task}></Duration>
       <DueDate task={props.task}></DueDate>
       <div className="TextCell">
         <CompStatus
@@ -239,17 +312,17 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
       <span className="ContextCell">
         {!props.hideContext
           ? props.task.contexts.map((c) => {
-              return (
-                <span>
-                  <span className="Context" key={c}>
-                    {c.replace("#x", "")}
-                  </span>{" "}
-                </span>
-              );
-            })
+            return (
+              <span>
+                <span className="Context" key={c}>
+                  {c.replace("#x", "")}
+                </span>{" "}
+              </span>
+            );
+          })
           : null}
       </span>
-      <StartDate task={props.task}></StartDate>
+      <VisibleDate task={props.task}></VisibleDate>
     </div>
   );
 }
@@ -320,8 +393,15 @@ function tasksBy_Context(tasks: Task[]): Task[] {
   });
   return _.sortBy((t: Task) => t.contexts[0], expanded);
 }
+
+function firstTaskDate(taskDates: TaskDates | undefined): string | undefined {
+  if (!taskDates) {
+    return;
+  }
+  return _.min([taskDates.start, taskDates.due, taskDates.visible]);
+}
 function tasksBy_Due(tasks: Task[]): Task[] {
-  return _.sortBy((t: Task) => t.dates?.due, tasks);
+  return _.sortBy((t: Task) => firstTaskDate(t.dates), tasks);
 }
 
 function Flat(props: { tasks: Task[] }) {
@@ -334,6 +414,39 @@ function Flat(props: { tasks: Task[] }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function WipFirst(props: { tasks: Task[] }) {
+  const [wip, non_wip] = props.tasks.reduce<[Task[], Task[]]>(
+    ([pass, fail], task) => {
+      if (task.status == "Wip") {
+        pass.push(task);
+      } else {
+        fail.push(task);
+      }
+      return [pass, fail];
+    },
+    [[], []],
+  );
+  const [has_date, no_date] = non_wip.reduce<[Task[], Task[]]>(
+    ([pass, fail], task) => {
+      if (firstTaskDate(task.dates)) {
+        pass.push(task);
+      } else {
+        fail.push(task);
+      }
+      return [pass, fail];
+    },
+    [[], []],
+  );
+
+  return (
+    <div>
+      <Flat tasks={wip}></Flat>
+      <Flat tasks={has_date}></Flat>
+      <Flat tasks={toSortByStatus(no_date)}></Flat>
     </div>
   );
 }
@@ -359,7 +472,7 @@ function App() {
   let [selectedStatuses, setSelectedStatuses] = useState<TaskStatus[]>(
     statuses.map((s) => s),
   );
-  let [startDate, setStartDate] = useState<string>();
+  let [visibleDate, setVisibleDate] = useState<string>(todayDate());
   let [hasDue, setHasDue] = useState<boolean>(false);
   let [noDue, setNoDue] = useState<boolean>(false);
 
@@ -380,7 +493,7 @@ function App() {
         "Socket is closed. Reconnect will be attempted in 1 second.",
         event.reason,
       );
-      setTimeout(function () {
+      setTimeout(function() {
         connect();
       }, 1000);
     });
@@ -420,20 +533,20 @@ function App() {
   }, [handleKeyPress]);
 
   function filteredTasks(): Task[] {
-    let ftasks = _.sortBy((t: Task) => t.dates?.due, tasks);
+    let ftasks = tasksBy_Due(tasks);
 
     ftasks = _.filter(
       (t: Task) => selectedStatuses.includes(t.status) || !!t.dates,
       ftasks,
     );
     function startDateFilter(t: Task) {
-      if (!startDate || startDate.length != 8) {
+      if (!visibleDate || visibleDate.length != 8) {
         return true;
       }
-      if (!t.dates || !t.dates.start) {
+      if (!t.dates || !t.dates.visible) {
         return true;
       }
-      return Number(t.dates.start) <= Number(startDate);
+      return Number(t.dates.visible) <= Number(visibleDate);
     }
     ftasks = _.filter(startDateFilter, ftasks);
 
@@ -459,8 +572,8 @@ function App() {
         setSelectedStatuses={setSelectedStatuses}
       ></StatusSelector>
       <DatePicker
-        date={startDate}
-        setDate={setStartDate}
+        date={visibleDate}
+        setDate={setVisibleDate}
         hasDue={hasDue}
         setHasDue={setHasDue}
         noDue={noDue}
@@ -477,7 +590,7 @@ function App() {
           case "ByContext":
             return <CompByContexts tasks={filteredTasks()}></CompByContexts>;
           default:
-            return <Flat tasks={filteredTasks()}></Flat>;
+            return <WipFirst tasks={filteredTasks()}></WipFirst>;
         }
       })(selectedTab)}
     </div>

@@ -27,7 +27,11 @@
 
 .TaskDate {
   display: inline-block;
-  width: 10em;
+  width: 11em;
+}
+
+.SmallDate {
+  font-size: 10px;
 }
 
 .ContextCell {
@@ -37,7 +41,12 @@
 
 .TextCell {
   display: inline-block;
-  width: 20em;
+  width: 25em;
+  padding-left: 5px;
+}
+.DurationCell {
+  display: inline-block;
+  width: 3em;
   padding-left: 5px;
 }
 .DateStart {
@@ -97,6 +106,13 @@
   background-color: #131519;
 }
 
+.DowSat {
+  background-color: #22252c;
+}
+.DowSun {
+  background-color: #191c21;
+}
+
 .block1 {
   text-align: right;
   width: 15em;
@@ -106,7 +122,7 @@
 }
 
 .block2 {
-  width: 50em;
+  width: 65em;
 }
 
 @keyframes App-logo-spin {
