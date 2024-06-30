@@ -39,11 +39,23 @@
   width: 5em;
 }
 
+.Separator {
+  display: inline-block;
+  background-color: rgb(81, 81, 97);
+}
+
 .TextCell {
   display: inline-block;
   width: 25em;
   padding-left: 5px;
 }
+
+.Group {
+  border-style: solid;
+  border-color: grey;
+  border-width: 0px 0px 10px 0px;
+}
+
 .DurationCell {
   display: inline-block;
   width: 3em;
@@ -103,16 +115,19 @@
 }
 
 .CompTask:hover {
-  background-color: #131519;
+  box-shadow: 2px 2px 2px 0px rgba(0, 0, 0, 0.75);
 }
 
 .DowSat {
   background-color: #222834;
 }
 .DowSun {
-  background-color: #132036;
+  background-color: #222834;
+  /* background-color: #132036; */
 }
-
+.DowMeta {
+  background-color: #170e11;
+}
 
 .block1 {
   text-align: right;

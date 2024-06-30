@@ -20,13 +20,19 @@ const statusRank: Record<TaskStatus, Number> = {
 };
 type Project = string;
 type Context = string;
-type TaskDates = { start: string; due: string; visible: string };
+type TaskDates = {
+  start?: string;
+  due?: string;
+  visible?: string;
+};
+type MetaTask = { count: number };
 type Task = {
   description: string;
   project: Project;
   status: TaskStatus;
   contexts: Context[];
   dates: TaskDates | undefined;
+  metaTask: MetaTask | undefined;
 };
 
 type ByProject = Map<Project, Task[]>;
@@ -37,13 +43,72 @@ function todayDate(): string {
   return rightNow.toISOString().slice(0, 10).replace(/-/g, "");
 }
 
+function formatDateToYYYYMMDD(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}${month}${day}`;
+}
+
+function addMetaTasks(tasks: Task[]): Task[] {
+  function generateSundayDates(
+    dates: Date[],
+  ): { date: Date; count?: number }[] {
+    const sundayDates: { date: Date; count?: number }[] = [];
+
+    for (let i = 0; i < dates.length - 1; i++) {
+      const startDate = dates[i];
+      const endDate = dates[i + 1];
+
+      let currentDate = new Date(startDate.getTime());
+      let sundayCount = 0;
+
+      while (currentDate < endDate) {
+        if (currentDate.getDay() === 0) {
+          if (
+            sundayDates.length > 0 &&
+            currentDate.getTime() ===
+              sundayDates[sundayDates.length - 1].date.getTime()
+          ) {
+            sundayDates[sundayDates.length - 1].count = sundayCount;
+          } else {
+            sundayDates.push({ date: new Date(currentDate.getTime()) });
+          }
+          sundayCount++;
+        }
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    }
+
+    return sundayDates;
+  }
+  function isString(str: string | undefined): str is string {
+    return typeof str === "string";
+  }
+
+  const dates: Date[] = tasks
+    .map((t) => firstTaskDate(t.dates))
+    .filter(isString)
+    .map((dstr) => noDashDateToDate(dstr));
+  let sundayTasks: Task[] = generateSundayDates(dates).map((sunday) => {
+    return {
+      project: "",
+      status: "NoStatus",
+      description: "",
+      contexts: [],
+      dates: { start: formatDateToYYYYMMDD(sunday.date) },
+      metaTask: { count: sunday.count || 1 },
+    };
+  });
+  return tasksByFirstDate([...tasks, ...sundayTasks]);
+}
+
 function getDayOfWeek(noDashDate: string | undefined): string {
   if (!noDashDate) {
     return "";
   }
   const date = new Date(noDashDateToUnixMs(noDashDate));
   const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  console.log(date);
   return daysOfWeek[date.getDay()];
 }
 
@@ -65,11 +130,14 @@ function isSun(noDashDate: string | undefined): boolean {
 function noDashDateToUnixMs(noDashDate: string): number {
   return Date.parse(
     noDashDate.slice(0, 4) +
-    "-" +
-    noDashDate.slice(4, 6) +
-    "-" +
-    noDashDate.slice(6, 8),
+      "-" +
+      noDashDate.slice(4, 6) +
+      "-" +
+      noDashDate.slice(6, 8),
   );
+}
+function noDashDateToDate(noDashDate: string): Date {
+  return new Date(noDashDateToUnixMs(noDashDate));
 }
 
 function noDashDaysDiff(
@@ -288,6 +356,9 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
   }
 
   function dowClass(): string {
+    if (props.task.metaTask) {
+      return "DowMeta";
+    }
     const firstDate = firstTaskDate(props.task.dates);
     if (isSat(firstDate)) {
       return "DowSat";
@@ -300,9 +371,6 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
 
   return (
     <div className={"CompTask " + dowClass()}>
-      <StartDate task={props.task}></StartDate>
-      <Duration task={props.task}></Duration>
-      <DueDate task={props.task}></DueDate>
       <div className="TextCell">
         <CompStatus
           status={props.task.status}
@@ -312,16 +380,17 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
       <span className="ContextCell">
         {!props.hideContext
           ? props.task.contexts.map((c) => {
-            return (
-              <span>
-                <span className="Context" key={c}>
-                  {c.replace("#x", "")}
-                </span>{" "}
-              </span>
-            );
-          })
+              return (
+                <span key={c}>
+                  <span className="Context">{c.replace("#x", "")}</span>{" "}
+                </span>
+              );
+            })
           : null}
       </span>
+      <StartDate task={props.task}></StartDate>
+      <Duration task={props.task}></Duration>
+      <DueDate task={props.task}></DueDate>
       <VisibleDate task={props.task}></VisibleDate>
     </div>
   );
@@ -336,7 +405,7 @@ function CompByProject(props: { project: Project; tasks: Task[] }) {
       <div className="block2">
         {props.tasks.map((t) => {
           return (
-            <div key={t.description}>
+            <div key={taskKey(t)}>
               <CompTask task={t}></CompTask>
             </div>
           );
@@ -394,13 +463,20 @@ function tasksBy_Context(tasks: Task[]): Task[] {
   return _.sortBy((t: Task) => t.contexts[0], expanded);
 }
 
-function firstTaskDate(taskDates: TaskDates | undefined): string | undefined {
-  if (!taskDates) {
-    return;
-  }
-  return _.min([taskDates.start, taskDates.due, taskDates.visible]);
+function taskKey(task: Task): string {
+  return (
+    task.description +
+    task.contexts.join() +
+    (task.dates?.due || "") +
+    (task.dates?.start || "") +
+    (task.dates?.visible || "")
+  );
 }
-function tasksBy_Due(tasks: Task[]): Task[] {
+
+function firstTaskDate(taskDates: TaskDates | undefined): string | undefined {
+  return _.min([taskDates?.start, taskDates?.due, taskDates?.visible]);
+}
+function tasksByFirstDate(tasks: Task[]): Task[] {
   return _.sortBy((t: Task) => firstTaskDate(t.dates), tasks);
 }
 
@@ -409,7 +485,7 @@ function Flat(props: { tasks: Task[] }) {
     <div>
       {props.tasks.map((task: Task) => {
         return (
-          <div key={task.description + task.contexts.join()}>
+          <div key={taskKey(task)}>
             <CompByProjects tasks={[task]}></CompByProjects>
           </div>
         );
@@ -442,10 +518,16 @@ function WipFirst(props: { tasks: Task[] }) {
     [[], []],
   );
 
+  let has_date_with_meta = addMetaTasks(has_date);
+
   return (
     <div>
-      <Flat tasks={wip}></Flat>
-      <Flat tasks={has_date}></Flat>
+      <div className="Group">
+        <Flat tasks={wip}></Flat>
+      </div>
+      <div className="Group">
+        <Flat tasks={has_date_with_meta}></Flat>
+      </div>
       <Flat tasks={toSortByStatus(no_date)}></Flat>
     </div>
   );
@@ -493,7 +575,7 @@ function App() {
         "Socket is closed. Reconnect will be attempted in 1 second.",
         event.reason,
       );
-      setTimeout(function() {
+      setTimeout(function () {
         connect();
       }, 1000);
     });
@@ -533,7 +615,7 @@ function App() {
   }, [handleKeyPress]);
 
   function filteredTasks(): Task[] {
-    let ftasks = tasksBy_Due(tasks);
+    let ftasks = tasksByFirstDate(tasks);
 
     ftasks = _.filter(
       (t: Task) => selectedStatuses.includes(t.status) || !!t.dates,
@@ -580,7 +662,11 @@ function App() {
         setNoDue={setNoDue}
       ></DatePicker>
       {tabs.map((t) => {
-        return <button onClick={() => setSelectedTab(t)}>{t}</button>;
+        return (
+          <button key={t} onClick={() => setSelectedTab(t)}>
+            {t}
+          </button>
+        );
       })}
       <button onClick={() => loadTasks()}>Load</button>
       {((tab: Tab) => {
