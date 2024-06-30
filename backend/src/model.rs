@@ -155,11 +155,14 @@ pub struct TaskDates {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub due: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub visible: Option<String>,
 }
 
 impl TaskDates {
     pub fn re_date() -> Regex {
-        Regex::new(r"(@[d,s,b][0-9]{8})").unwrap()
+        Regex::new(r"(@[d,s,b,v][0-9]{8})").unwrap()
     }
 
     fn parse_date(dates: &Vec<String>, c: char) -> Option<String> {
@@ -175,14 +178,19 @@ impl TaskDates {
             .captures_iter(task)
             .map(|c| c.get(0).unwrap().as_str().into())
             .collect();
+        let start: Option<String> = TaskDates::parse_date(&dates, 's');
         let both: Option<String> = TaskDates::parse_date(&dates, 'b');
-        let start: Option<String> = both.clone().or(TaskDates::parse_date(&dates, 's'));
         let due: Option<String> = both.clone().or(TaskDates::parse_date(&dates, 'd'));
+        let visible: Option<String> = both.clone().or(TaskDates::parse_date(&dates, 'v'));
 
-        if start.is_none() && due.is_none() {
+        if start.is_none() && due.is_none() && visible.is_none() {
             None
         } else {
-            Some(TaskDates { start, due })
+            Some(TaskDates {
+                start,
+                due,
+                visible,
+            })
         }
     }
 

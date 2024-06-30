@@ -219,9 +219,18 @@ fn main() {
                             .as_ref()
                             .map(|d| d.due.clone())
                             .flatten());
-                        t.dates = match (start, due) {
-                            (None, None) => None,
-                            (s, d) => Some(TaskDates { start: s, due: d }),
+                        let visible = t.dates.as_ref().map(|d| d.due.clone()).flatten().or(gt
+                            .dates
+                            .as_ref()
+                            .map(|d| d.visible.clone())
+                            .flatten());
+                        t.dates = match (start, due, visible) {
+                            (None, None, None) => None,
+                            (s, d, v) => Some(TaskDates {
+                                start: s,
+                                due: d,
+                                visible: v,
+                            }),
                         };
                         t.contexts.append(gt.contexts.clone().as_mut());
                         t
