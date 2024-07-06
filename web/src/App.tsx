@@ -1,5 +1,6 @@
 import "./App.css";
 import * as _ from "lodash/fp";
+import { format } from "date-fns";
 
 import { useEffect, useState, useCallback } from "react";
 
@@ -30,16 +31,30 @@ async function getTasks(): Promise<m.Tasks> {
 }
 
 function DayTask(props: { task: m.Task }) {
-  return <div className="Task">{JSON.stringify(props.task)}</div>;
+  return (
+    <div className="TaskLine">
+      <div className="Project">
+        <span>{props.task.cleanProjext()}</span>
+      </div>
+      <span className="Description">{props.task.cleanDescription()}</span>
+    </div>
+  );
 }
 
 function DayBlock(props: { block: vm.DayBlock }) {
+  const date = props.block.date();
   return (
     <div className="DayBlock">
-      <span>{props.block.fmtDay()}</span>
-      {props.block.tasks.map((task) => {
-        return <DayTask key={task.key()} task={task}></DayTask>;
-      })}
+      <div className="DayBlockDate">
+        <div>{date?.fmt("EEEEEE")}</div>
+        <div>{date?.fmt("d MMM")}</div>
+        <div></div>
+      </div>
+      <div className="DayTasks">
+        {props.block.tasks.map((task) => {
+          return <DayTask key={task.key()} task={task}></DayTask>;
+        })}
+      </div>
     </div>
   );
 }
@@ -47,9 +62,11 @@ function DayBlock(props: { block: vm.DayBlock }) {
 function WeekBlock(props: { week_block: vm.WeekBlock }) {
   return (
     <div className="WeekBlock">
-      <span>{props.week_block.fmtWeekBookends()}</span>
+      <span className="WeekRange">{props.week_block.fmtWeekBookends()}</span>
       {props.week_block.tasks.map((day_block) => {
-        return <DayBlock key={day_block.key()} block={day_block}></DayBlock>;
+        return day_block.onlySundayTask() ? undefined : (
+          <DayBlock key={day_block.key()} block={day_block}></DayBlock>
+        );
       })}
     </div>
   );
@@ -93,7 +110,7 @@ function App() {
         "Socket is closed. Reconnect will be attempted in 1 second.",
         event.reason,
       );
-      setTimeout(function () {
+      setTimeout(function() {
         connect();
       }, 1000);
     });
@@ -130,7 +147,6 @@ function App() {
     gtdTasks.subdivide(visibleDate);
 
   const withMeta = m.Tasks.addMetaTasks(has_date);
-  console.log(withMeta);
   const week_blocks = vm.WeekBlock.fromTasks(withMeta);
 
   return (

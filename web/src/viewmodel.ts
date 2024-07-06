@@ -31,6 +31,10 @@ export class DayBlock {
     return format(d, "EEEEEE d MMM");
   }
 
+  onlySundayTask(): boolean {
+    return this.tasks.length == 1 && this.tasks[0].isSunday();
+  }
+
   key(): string {
     const d = this.date()?.date;
     if (!d) {

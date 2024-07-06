@@ -56,10 +56,10 @@ export class TaskDate {
   static toUnixMs(noDashDate: string): number {
     return Date.parse(
       noDashDate.slice(0, 4) +
-        "-" +
-        noDashDate.slice(4, 6) +
-        "-" +
-        noDashDate.slice(6, 8),
+      "-" +
+      noDashDate.slice(4, 6) +
+      "-" +
+      noDashDate.slice(6, 8),
     );
   }
   static toDate(noDashDate: string | undefined): Date | undefined {
@@ -129,6 +129,13 @@ export class TaskDate {
   }
   static toMM_DD(date: Date): string {
     return format(date, "d MMM");
+  }
+
+  fmt(f: string): string {
+    if (!this.date) {
+      return "";
+    }
+    return format(this.date, f);
   }
 
   toYYYYMMDD(): string | undefined {
@@ -204,11 +211,19 @@ export class Task {
     return this.data.description.replace("- ", "").replace("* ", "");
   }
 
+  cleanProjext() {
+    return this.data.project.replace(".md", "");
+  }
+
   contextsWithNone(): Data.Context[] {
     if (this.data.contexts.length == 0) {
       return ["(none)"];
     }
     return this.data.contexts;
+  }
+
+  isSunday(): boolean {
+    return this.data.status == "Sunday";
   }
 
   key(): string {
