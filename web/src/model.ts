@@ -177,6 +177,13 @@ export class Task {
     return this.data.description.replace("- ", "").replace("* ", "");
   }
 
+  contextsWithNone(): Data.Context[] {
+    if (this.data.contexts.length == 0) {
+      return ["(none)"];
+    }
+    return this.data.contexts;
+  }
+
   key(): string {
     return (
       this.data.description +
@@ -257,57 +264,4 @@ export class Tasks {
     });
     return _.sortBy((t: Task) => t.data.contexts[0], expanded);
   }
-}
-
-function addMetaTasks(tasks: Task[]): Task[] {
-  function generateSundayDates(
-    dates: Date[],
-  ): { date: Date; count?: number }[] {
-    const sundayDates: { date: Date; count?: number }[] = [];
-
-    for (let i = 0; i < dates.length - 1; i++) {
-      const startDate = dates[i];
-      const endDate = dates[i + 1];
-
-      let currentDate = new Date(startDate.getTime());
-      let sundayCount = 0;
-
-      while (currentDate < endDate) {
-        if (currentDate.getDay() === 0) {
-          if (
-            sundayDates.length > 0 &&
-            currentDate.getTime() ===
-              sundayDates[sundayDates.length - 1].date.getTime()
-          ) {
-            sundayDates[sundayDates.length - 1].count = sundayCount;
-          } else {
-            sundayDates.push({ date: new Date(currentDate.getTime()) });
-          }
-          sundayCount++;
-        }
-        currentDate.setDate(currentDate.getDate() + 1);
-      }
-    }
-
-    return sundayDates;
-  }
-  function isString(str: string | undefined): str is string {
-    return typeof str === "string";
-  }
-
-  const dates: Date[] = tasks
-    .map((t) => firstTaskDate(t.dates))
-    .filter(isString)
-    .map((dstr) => noDashDateToDate(dstr));
-  let sundayTasks: Task[] = generateSundayDates(dates).map((sunday) => {
-    return {
-      project: "",
-      status: "NoStatus",
-      description: "",
-      contexts: [],
-      dates: { start: formatDateToYYYYMMDD(sunday.date) },
-      metaTask: { count: sunday.count || 1 },
-    };
-  });
-  return tasksByFirstDate([...tasks, ...sundayTasks]);
 }
