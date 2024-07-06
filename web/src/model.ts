@@ -1,7 +1,15 @@
+import { Dictionary } from "lodash";
 import * as _ from "lodash/fp";
 
 export namespace Data {
-  const statuses = ["Todo", "Wip", "NoStatus", "Review"] as const;
+  const statuses = [
+    "Todo",
+    "Wip",
+    "NoStatus",
+    "Review",
+    "Sunday",
+    "Today",
+  ] as const;
   type TaskStatus = (typeof statuses)[number];
 
   export const statusRank: Record<TaskStatus, Number> = {
@@ -9,6 +17,8 @@ export namespace Data {
     Review: 2,
     Todo: 3,
     NoStatus: 4,
+    Sunday: 5,
+    Today: 6,
   };
   export type Project = string;
   export type Context = string;
@@ -19,20 +29,19 @@ export namespace Data {
     visible?: string;
   };
 
-  type MetaTask = { count: number };
-
   export type Task = {
     description: string;
     project: Project;
     status: TaskStatus;
     contexts: Context[];
     dates: TaskDates | undefined;
-    metaTask: MetaTask | undefined;
   };
 }
 
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 export type Dow = (typeof daysOfWeek)[number];
+
+export type WeekBookends = { monday: Date; sunday: Date };
 
 type DateKind = "START" | "DUE" | "VISIBLE";
 export class TaskDate {
@@ -78,7 +87,7 @@ export class TaskDate {
     return diffMs / (1000 * 3600 * 24);
   }
 
-  weekBookends(): { monday: Date; sunday: Date } | undefined {
+  weekBookends(): WeekBookends | undefined {
     if (!this.date) {
       return;
     }
@@ -102,30 +111,36 @@ export class TaskDate {
     return daysOfWeek[this.date.getDay()];
   }
 
-  isDow(dow: Dow) {
-    this.dowStr() == dow;
+  isDow(dow: Dow): boolean {
+    return this.dowStr() == dow;
   }
 
-  static _toYMD(date: Date): { year: string; month: string; day: string } {
+  static toYMD(date: Date): { year: string; month: string; day: string } {
     const year = "" + date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
     return { year, month, day };
+  }
+  static toYYYYMMDD(date: Date): string {
+    const { year, month, day } = TaskDate.toYMD(date);
+    return `${year}${month}${day}`;
+  }
+  static toYYYY_MM_DD(date: Date): string {
+    const { year, month, day } = TaskDate.toYMD(date);
+    return `${year}-${month}-${day}`;
   }
 
   toYYYYMMDD(): string | undefined {
     if (!this.date) {
       return undefined;
     }
-    const { year, month, day } = TaskDate._toYMD(this.date);
-    return `${year}${month}${day}`;
+    return TaskDate.toYYYYMMDD(this.date);
   }
   toYYYY_MM_DD(): string | undefined {
     if (!this.date) {
       return undefined;
     }
-    const { year, month, day } = TaskDate._toYMD(this.date);
-    return `${year}-${month}-${day}`;
+    return TaskDate.toYYYY_MM_DD(this.date);
   }
 }
 export class TaskDates {
@@ -153,6 +168,17 @@ export class TaskDates {
       return undefined;
     }
     return kindMatch[0];
+  }
+
+  isVisible(d: Date | undefined): boolean {
+    if (!d) {
+      return true;
+    }
+    const visible_date = this.get("VISIBLE")?.date;
+    if (!visible_date) {
+      return true;
+    }
+    return visible_date <= d;
   }
 
   diff(k1: DateKind, k2: DateKind): number | undefined {
@@ -197,10 +223,6 @@ export class Task {
 
 export class Tasks {
   tasks: Task[];
-  wip: Task[];
-  non_wip: Task[];
-  has_date: Task[];
-  no_date: Task[];
 
   static fromData(data: Data.Task[]): Tasks {
     return new Tasks(
@@ -211,9 +233,33 @@ export class Tasks {
   }
 
   constructor(tasks: Task[]) {
-    this.tasks = tasks;
+    this.tasks = Tasks.tasksBy_FirstDate(tasks);
+  }
 
-    [this.wip, this.non_wip] = this.tasks.reduce<[Task[], Task[]]>(
+  static groupByWeek(t: Task[]): Dictionary<Task[]> {
+    return _.groupBy((t: Task) => {
+      return t.dates.first()?.weekBookends()?.monday;
+    })(t);
+  }
+
+  static groupByDay(t: Task[]) {
+    return _.groupBy((t: Task) => {
+      return t.dates.first()?.date;
+    })(t);
+  }
+
+  subdivide(visbility_date: Date | undefined): {
+    tasks: Task[];
+    wip: Task[];
+    non_wip: Task[];
+    has_date: Task[];
+    no_date: Task[];
+  } {
+    const tasks = _.filter<Task>((t: Task) =>
+      t.dates.isVisible(visbility_date),
+    )(this.tasks);
+
+    const [wip, non_wip] = tasks.reduce<[Task[], Task[]]>(
       ([pass, fail], task) => {
         if (task.data.status == "Wip" || task.data.status == "Review") {
           pass.push(task);
@@ -225,7 +271,7 @@ export class Tasks {
       [[], []],
     );
 
-    [this.has_date, this.no_date] = this.non_wip.reduce<[Task[], Task[]]>(
+    const [has_date, no_date] = non_wip.reduce<[Task[], Task[]]>(
       ([pass, fail], task) => {
         if (task.dates.first()) {
           pass.push(task);
@@ -236,6 +282,7 @@ export class Tasks {
       },
       [[], []],
     );
+    return { tasks, wip, non_wip, has_date, no_date };
   }
   static tasksBy_FirstDate(tasks: Task[]): Task[] {
     return _.sortBy((t: Task) => t.dates.first(), tasks);
@@ -263,5 +310,49 @@ export class Tasks {
       });
     });
     return _.sortBy((t: Task) => t.data.contexts[0], expanded);
+  }
+
+  static addMetaTasks(tasks: Task[]): Task[] {
+    function generateSundayDates(dates: Date[]): Date[] {
+      const sundayDates: Date[] = [];
+
+      for (let i = 0; i < dates.length - 1; i++) {
+        const startDate = dates[i];
+        const endDate = dates[i + 1];
+
+        let currentDate = new Date(startDate.getTime());
+
+        while (currentDate < endDate) {
+          if (currentDate.getDay() === 0) {
+            sundayDates.push(new Date(currentDate.getTime()));
+          }
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      }
+      return sundayDates;
+    }
+
+    function isDefined(d: Date | undefined): d is Date {
+      return d !== undefined;
+    }
+
+    const input_dates: Date[] = tasks
+      .map((t) => t.dates.first()?.date)
+      .filter(isDefined);
+
+    const sundayTasks: Task[] = generateSundayDates(input_dates).map(
+      (sunday) => {
+        return new Task({
+          project: "",
+          status: "Sunday",
+          description: "",
+          contexts: [],
+          dates: {
+            start: TaskDate.toYYYYMMDD(sunday),
+          },
+        });
+      },
+    );
+    return Tasks.tasksBy_FirstDate([...tasks, ...sundayTasks]);
   }
 }
