@@ -4,155 +4,21 @@ import * as _ from "lodash/fp";
 import { useEffect, useState, useCallback } from "react";
 
 import env from "./.env.json";
-import { F } from "lodash/fp";
-import { start } from "repl";
+import * as m from "./model";
 
 const tabs = ["Flat", "ByProject", "ByContext"] as const;
 type Tab = (typeof tabs)[number];
 
-const statuses = ["Todo", "Wip", "NoStatus", "Review"] as const;
-type TaskStatus = (typeof statuses)[number];
-const statusRank: Record<TaskStatus, Number> = {
-  Wip: 1,
-  Review: 2,
-  Todo: 3,
-  NoStatus: 4,
-};
-type Project = string;
-type Context = string;
-type TaskDates = {
-  start?: string;
-  due?: string;
-  visible?: string;
-};
-type MetaTask = { count: number };
-type Task = {
-  description: string;
-  project: Project;
-  status: TaskStatus;
-  contexts: Context[];
-  dates: TaskDates | undefined;
-  metaTask: MetaTask | undefined;
-};
-
-type ByProject = Map<Project, Task[]>;
-type ByContext = Map<Context, Task[]>;
+type ByProject = Map<m.Data.Project, m.Task[]>;
+type ByContext = Map<m.Data.Context, m.Task[]>;
 
 function todayDate(): string {
   let rightNow = new Date();
   return rightNow.toISOString().slice(0, 10).replace(/-/g, "");
 }
 
-function formatDateToYYYYMMDD(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}${month}${day}`;
-}
-
-function addMetaTasks(tasks: Task[]): Task[] {
-  function generateSundayDates(
-    dates: Date[],
-  ): { date: Date; count?: number }[] {
-    const sundayDates: { date: Date; count?: number }[] = [];
-
-    for (let i = 0; i < dates.length - 1; i++) {
-      const startDate = dates[i];
-      const endDate = dates[i + 1];
-
-      let currentDate = new Date(startDate.getTime());
-      let sundayCount = 0;
-
-      while (currentDate < endDate) {
-        if (currentDate.getDay() === 0) {
-          if (
-            sundayDates.length > 0 &&
-            currentDate.getTime() ===
-              sundayDates[sundayDates.length - 1].date.getTime()
-          ) {
-            sundayDates[sundayDates.length - 1].count = sundayCount;
-          } else {
-            sundayDates.push({ date: new Date(currentDate.getTime()) });
-          }
-          sundayCount++;
-        }
-        currentDate.setDate(currentDate.getDate() + 1);
-      }
-    }
-
-    return sundayDates;
-  }
-  function isString(str: string | undefined): str is string {
-    return typeof str === "string";
-  }
-
-  const dates: Date[] = tasks
-    .map((t) => firstTaskDate(t.dates))
-    .filter(isString)
-    .map((dstr) => noDashDateToDate(dstr));
-  let sundayTasks: Task[] = generateSundayDates(dates).map((sunday) => {
-    return {
-      project: "",
-      status: "NoStatus",
-      description: "",
-      contexts: [],
-      dates: { start: formatDateToYYYYMMDD(sunday.date) },
-      metaTask: { count: sunday.count || 1 },
-    };
-  });
-  return tasksByFirstDate([...tasks, ...sundayTasks]);
-}
-
-function getDayOfWeek(noDashDate: string | undefined): string {
-  if (!noDashDate) {
-    return "";
-  }
-  const date = new Date(noDashDateToUnixMs(noDashDate));
-  const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  return daysOfWeek[date.getDay()];
-}
-
-function isDow(noDashDate: string | undefined, dayNumber: Number): boolean {
-  if (!noDashDate) {
-    return false;
-  }
-  const date = new Date(noDashDateToUnixMs(noDashDate));
-  return date.getDay() == dayNumber;
-}
-
-function isSat(noDashDate: string | undefined): boolean {
-  return isDow(noDashDate, 6);
-}
-function isSun(noDashDate: string | undefined): boolean {
-  return isDow(noDashDate, 0);
-}
-
-function noDashDateToUnixMs(noDashDate: string): number {
-  return Date.parse(
-    noDashDate.slice(0, 4) +
-      "-" +
-      noDashDate.slice(4, 6) +
-      "-" +
-      noDashDate.slice(6, 8),
-  );
-}
-function noDashDateToDate(noDashDate: string): Date {
-  return new Date(noDashDateToUnixMs(noDashDate));
-}
-
-function noDashDaysDiff(
-  d1: string | undefined,
-  d2: string | undefined,
-): number | undefined {
-  if (!d1 || !d2) {
-    return;
-  }
-  const diffMs = noDashDateToUnixMs(d1) - noDashDateToUnixMs(d2);
-  return diffMs / (1000 * 3600 * 24);
-}
-
-function toByProject(tasks: Task[]): ByProject {
-  return tasks.reduce((results: ByProject, task: Task) => {
+function toByProject(tasks: m.Task[]): ByProject {
+  return tasks.reduce((results: ByProject, task: m.Task) => {
     const p = task.project;
     if (!results.has(p)) {
       results.set(p, []);
@@ -163,16 +29,16 @@ function toByProject(tasks: Task[]): ByProject {
   }, new Map());
 }
 
-function toByContext(tasks: Task[]): ByContext {
-  return tasks.reduce((results: ByContext, task: Task) => {
-    if (task.contexts.length == 0) {
+function toByContext(tasks: m.Task[]): ByContext {
+  return tasks.reduce((results: ByContext, task: m.Task) => {
+    if (task.data.contexts.length == 0) {
       if (!results.has("none")) {
         results.set("none", []);
       }
       //@ts-ignore
       results.get("none").push(task);
     }
-    task.contexts.forEach((c) => {
+    task.data.contexts.forEach((c) => {
       if (!results.has(c)) {
         results.set(c, []);
       }
@@ -181,12 +47,6 @@ function toByContext(tasks: Task[]): ByContext {
     });
     return results;
   }, new Map());
-}
-
-function toSortByStatus(tasks: Task[]): Task[] {
-  return _.sortBy((t: Task) => {
-    return statusRank[t.status];
-  }, tasks);
 }
 
 function StatusSelector(props: {
@@ -277,12 +137,21 @@ function CompStatus(props: { status: string; text: string }) {
   );
 }
 
-function CompTask(props: { task: Task; hideContext?: boolean }) {
+function CompTask(props: { task: m.Task; hideContext?: boolean }) {
   function displayDate(date: string | undefined) {
     if (!date) {
       return "";
     }
     return date.slice(0, 4) + "-" + date.slice(4, 6) + "-" + date.slice(6, 8);
+  }
+
+  function TaskDow(props: { task: m.Task }) {
+    return (
+      <span className="TaskDow">
+        {" "}
+        {getDayOfWeek(firstTaskDate(props.task.dates))}
+      </span>
+    );
   }
 
   function TaskDate(props: {
@@ -297,7 +166,6 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
           {displayDate(props.date)}
           <span className="SmallDate">
             {" "}
-            {getDayOfWeek(props.date)}
             {props.diff ? " (" + props.diff + ")" : null}
           </span>
         </span>{" "}
@@ -317,7 +185,7 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
     }
     return "DateDueToday";
   }
-  function StartDate(props: { task: Task }) {
+  function StartDate(props: { task: m.Task }) {
     let startDate = props.task.dates?.start;
     let daysDiff = noDashDaysDiff(startDate, todayDate());
     return (
@@ -328,7 +196,7 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
       ></TaskDate>
     );
   }
-  function VisibleDate(props: { task: Task }) {
+  function VisibleDate(props: { task: m.Task }) {
     return (
       <TaskDate
         date={props.task.dates?.visible}
@@ -336,14 +204,14 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
       ></TaskDate>
     );
   }
-  function Duration(props: { task: Task }) {
+  function Duration(props: { task: m.Task }) {
     let daysDiff = noDashDaysDiff(
       props.task.dates?.due,
       props.task.dates?.start,
     );
     return <div className="DurationCell">{daysDiff}</div>;
   }
-  function DueDate(props: { task: Task }) {
+  function DueDate(props: { task: m.Task }) {
     let dueDate = props.task.dates?.due;
     let daysDiff = noDashDaysDiff(dueDate, todayDate());
     return (
@@ -371,6 +239,7 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
 
   return (
     <div className={"CompTask " + dowClass()}>
+      <TaskDow task={props.task}></TaskDow>
       <div className="TextCell">
         <CompStatus
           status={props.task.status}
@@ -396,7 +265,7 @@ function CompTask(props: { task: Task; hideContext?: boolean }) {
   );
 }
 
-function CompByProject(props: { project: Project; tasks: Task[] }) {
+function CompByProject(props: { project: Project; tasks: m.Task[] }) {
   return (
     <div className="project">
       <div className="block1">
@@ -415,7 +284,7 @@ function CompByProject(props: { project: Project; tasks: Task[] }) {
   );
 }
 
-function CompByProjects(props: { tasks: Task[] }) {
+function CompByProjects(props: { tasks: m.Task[] }) {
   const byProject = toByProject(props.tasks);
   return (
     <div>
@@ -430,7 +299,7 @@ function CompByProjects(props: { tasks: Task[] }) {
   );
 }
 
-function CompByContexts(props: { tasks: Task[] }) {
+function CompByContexts(props: { tasks: m.Task[] }) {
   const byContext = toByContext(props.tasks);
   return (
     <div>
@@ -444,40 +313,6 @@ function CompByContexts(props: { tasks: Task[] }) {
       })}
     </div>
   );
-}
-
-function tasksBy_Project(tasks: Task[]): Task[] {
-  return _.sortBy((t: Task) => t.project, tasks);
-}
-function tasksBy_Context(tasks: Task[]): Task[] {
-  let expanded = tasks.flatMap((t) => {
-    if (t.contexts.length == 0) {
-      return [t];
-    }
-    return t.contexts.map((c) => {
-      let copy = _.cloneDeep(t);
-      copy.contexts = [c];
-      return copy;
-    });
-  });
-  return _.sortBy((t: Task) => t.contexts[0], expanded);
-}
-
-function taskKey(task: Task): string {
-  return (
-    task.description +
-    task.contexts.join() +
-    (task.dates?.due || "") +
-    (task.dates?.start || "") +
-    (task.dates?.visible || "")
-  );
-}
-
-function firstTaskDate(taskDates: TaskDates | undefined): string | undefined {
-  return _.min([taskDates?.start, taskDates?.due, taskDates?.visible]);
-}
-function tasksByFirstDate(tasks: Task[]): Task[] {
-  return _.sortBy((t: Task) => firstTaskDate(t.dates), tasks);
 }
 
 function Flat(props: { tasks: Task[] }) {
@@ -495,29 +330,6 @@ function Flat(props: { tasks: Task[] }) {
 }
 
 function WipFirst(props: { tasks: Task[] }) {
-  const [wip, non_wip] = props.tasks.reduce<[Task[], Task[]]>(
-    ([pass, fail], task) => {
-      if (task.status == "Wip") {
-        pass.push(task);
-      } else {
-        fail.push(task);
-      }
-      return [pass, fail];
-    },
-    [[], []],
-  );
-  const [has_date, no_date] = non_wip.reduce<[Task[], Task[]]>(
-    ([pass, fail], task) => {
-      if (firstTaskDate(task.dates)) {
-        pass.push(task);
-      } else {
-        fail.push(task);
-      }
-      return [pass, fail];
-    },
-    [[], []],
-  );
-
   let has_date_with_meta = addMetaTasks(has_date);
 
   return (
@@ -533,7 +345,7 @@ function WipFirst(props: { tasks: Task[] }) {
   );
 }
 
-async function getTasks(): Promise<Task[]> {
+async function getTasks(): Promise<m.Tasks> {
   const url = `${env.scheme}://${env.host}`;
   const requestOptionsFetch = {
     method: "GET",
@@ -543,9 +355,8 @@ async function getTasks(): Promise<Task[]> {
   };
   //@ts-ignore
   const response = await fetch(url + "/tasks", requestOptionsFetch);
-  const tasks = (await response.json()) as Task[];
-  return tasks;
-  return [];
+  const tasks_data = (await response.json()) as m.Data.Task[];
+  return m.Tasks.fromData(tasks_data);
 }
 
 function App() {
