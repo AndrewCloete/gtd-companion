@@ -6,6 +6,7 @@ import { useEffect, useState, useCallback } from "react";
 import env from "./.env.json";
 import * as m from "./model";
 import * as vm from "./viewmodel";
+import { json } from "stream/consumers";
 
 function getToday(): Date {
   return new Date();
@@ -28,18 +29,51 @@ async function getTasks(): Promise<m.Tasks> {
   return m.Tasks.fromData(tasks_data);
 }
 
+function DayTask(props: { task: m.Task }) {
+  return <div className="Task">{JSON.stringify(props.task)}</div>;
+}
+
+function DayBlock(props: { block: vm.DayBlock }) {
+  return (
+    <div className="DayBlock">
+      <span>{props.block.fmtDay()}</span>
+      {props.block.tasks.map((task) => {
+        return <DayTask key={task.key()} task={task}></DayTask>;
+      })}
+    </div>
+  );
+}
+
+function WeekBlock(props: { week_block: vm.WeekBlock }) {
+  return (
+    <div className="WeekBlock">
+      <span>{props.week_block.fmtWeekBookends()}</span>
+      {props.week_block.tasks.map((day_block) => {
+        return <DayBlock key={day_block.key()} block={day_block}></DayBlock>;
+      })}
+    </div>
+  );
+}
+
+function WeekBlocks(props: { week_blocks: vm.WeekBlock[] }) {
+  return (
+    <div className="WeekBlocks">
+      {props.week_blocks.map((week_block) => {
+        return (
+          <WeekBlock key={week_block.key()} week_block={week_block}></WeekBlock>
+        );
+      })}
+    </div>
+  );
+}
+
 function App() {
-  let [tasks, setTasks] = useState<m.Task[]>([]);
+  let [gtdTasks, setTasks] = useState<m.Tasks>(m.Tasks.empty());
   let [visibleDate, setVisibleDate] = useState<Date>(getToday());
 
   async function loadTasks() {
     const networkTasks = await getTasks();
-    setTasks(networkTasks.tasks);
-    const { tasks, wip, non_wip, has_date, no_date } =
-      networkTasks.subdivide(visibleDate);
-
-    const week_tasks = vm.WeekTasks.fromTasks(m.Tasks.addMetaTasks(has_date));
-    console.log(week_tasks);
+    setTasks(networkTasks);
   }
 
   function connect() {
@@ -92,7 +126,18 @@ function App() {
     };
   }, [handleKeyPress]);
 
-  return <div className="App">a</div>;
+  const { tasks, wip, non_wip, has_date, no_date } =
+    gtdTasks.subdivide(visibleDate);
+
+  const withMeta = m.Tasks.addMetaTasks(has_date);
+  console.log(withMeta);
+  const week_blocks = vm.WeekBlock.fromTasks(withMeta);
+
+  return (
+    <div className="App">
+      <WeekBlocks week_blocks={week_blocks}></WeekBlocks>
+    </div>
+  );
 
   // return (
   //   <div className="App">

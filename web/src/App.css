@@ -5,6 +5,22 @@
   min-height: 100vh;
 }
 
+.DayBlock {
+  padding-top: 5px;
+  padding-bottom: 5px;
+  border-style: solid;
+  border-color: black;
+  border-width: 0px 0px 5px 0px;
+}
+
+.WeekBlock {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  border-style: solid;
+  border-color: grey;
+  border-width: 0px 0px 5px 0px;
+}
+
 .Status_Todo {
   color: rgb(42, 109, 124);
 }

@@ -1,4 +1,5 @@
 import { Dictionary } from "lodash";
+import { format } from "date-fns";
 import * as _ from "lodash/fp";
 
 export namespace Data {
@@ -121,12 +122,13 @@ export class TaskDate {
     return { year, month, day };
   }
   static toYYYYMMDD(date: Date): string {
-    const { year, month, day } = TaskDate.toYMD(date);
-    return `${year}${month}${day}`;
+    return format(date, "yyyyMMdd");
   }
   static toYYYY_MM_DD(date: Date): string {
-    const { year, month, day } = TaskDate.toYMD(date);
-    return `${year}-${month}-${day}`;
+    return format(date, "yyyy-MM-dd");
+  }
+  static toMM_DD(date: Date): string {
+    return format(date, "d MMM");
   }
 
   toYYYYMMDD(): string | undefined {
@@ -223,6 +225,10 @@ export class Task {
 export class Tasks {
   tasks: Task[];
 
+  static empty(): Tasks {
+    return new Tasks([]);
+  }
+
   static fromData(data: Data.Task[]): Tasks {
     return new Tasks(
       data.map((d) => {
@@ -284,7 +290,7 @@ export class Tasks {
     return { tasks, wip, non_wip, has_date, no_date };
   }
   static tasksBy_FirstDate(tasks: Task[]): Task[] {
-    return _.sortBy((t: Task) => t.dates.first(), tasks);
+    return _.sortBy((t: Task) => t.dates.first()?.date, tasks);
   }
 
   static tasksBy_Status(tasks: Task[]): Task[] {
@@ -313,22 +319,24 @@ export class Tasks {
 
   static addMetaTasks(tasks: Task[]): Task[] {
     function generateSundayDates(dates: Date[]): Date[] {
-      const sundayDates: Date[] = [];
+      const sundays: Date[] = [];
+      const startDate = new Date(
+        Math.min(...dates.map((date) => date.getTime())),
+      );
+      const endDate = new Date(
+        Math.max(...dates.map((date) => date.getTime())),
+      );
 
-      for (let i = 0; i < dates.length - 1; i++) {
-        const startDate = dates[i];
-        const endDate = dates[i + 1];
+      let current = new Date(startDate);
+      // Move the current date to the first Sunday
+      current.setDate(current.getDate() + ((7 - current.getDay()) % 7));
 
-        let currentDate = new Date(startDate.getTime());
-
-        while (currentDate < endDate) {
-          if (currentDate.getDay() === 0) {
-            sundayDates.push(new Date(currentDate.getTime()));
-          }
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
+      while (current <= endDate) {
+        sundays.push(new Date(current)); // Push a copy of the current date to the array
+        current.setDate(current.getDate() + 7); // Move to the next Sunday
       }
-      return sundayDates;
+
+      return sundays;
     }
 
     function isDefined(d: Date | undefined): d is Date {
@@ -348,6 +356,7 @@ export class Tasks {
           contexts: [],
           dates: {
             start: TaskDate.toYYYYMMDD(sunday),
+            due: TaskDate.toYYYYMMDD(sunday),
           },
         });
       },
