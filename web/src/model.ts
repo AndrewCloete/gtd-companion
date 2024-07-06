@@ -43,16 +43,12 @@ export type Dow = (typeof daysOfWeek)[number];
 
 export type WeekBookends = { monday: Date; sunday: Date };
 
-type DateKind = "START" | "DUE" | "VISIBLE";
+const dateKinds = ["START", "VISIBLE", "DUE", , "TEST"] as const;
+export type DateKind = (typeof dateKinds)[number];
 export class TaskDate {
   date: Date | undefined;
-  kind: DateKind | undefined;
+  kind: DateKind;
   constructor(dateStr: string | undefined, kind: DateKind) {
-    if (!dateStr) {
-      this.date = undefined;
-      this.kind = undefined;
-      return;
-    }
     this.date = TaskDate.toDate(dateStr);
     this.kind = kind;
   }
@@ -65,7 +61,10 @@ export class TaskDate {
         noDashDate.slice(6, 8),
     );
   }
-  static toDate(noDashDate: string): Date {
+  static toDate(noDashDate: string | undefined): Date | undefined {
+    if (!noDashDate) {
+      return;
+    }
     return new Date(TaskDate.toUnixMs(noDashDate));
   }
 
@@ -150,7 +149,7 @@ export class TaskDates {
       new TaskDate(data?.start, "START"),
       new TaskDate(data?.due, "DUE"),
       new TaskDate(data?.visible, "VISIBLE"),
-    ];
+    ].filter((d) => d.date);
   }
 
   first(): TaskDate | undefined {
@@ -159,7 +158,7 @@ export class TaskDates {
 
   get(kind: DateKind): TaskDate | undefined {
     const kindMatch = this.dates.filter((d) => {
-      return (d.kind = kind);
+      return d.kind == kind;
     });
     if (kindMatch.length > 1) {
       throw `More than one entry for date kind ${kind}`;
@@ -255,9 +254,9 @@ export class Tasks {
     has_date: Task[];
     no_date: Task[];
   } {
-    const tasks = _.filter<Task>((t: Task) =>
-      t.dates.isVisible(visbility_date),
-    )(this.tasks);
+    const tasks = _.filter<Task>((t: Task) => {
+      return t.dates.isVisible(visbility_date);
+    })(this.tasks);
 
     const [wip, non_wip] = tasks.reduce<[Task[], Task[]]>(
       ([pass, fail], task) => {
