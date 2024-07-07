@@ -11,7 +11,7 @@ export namespace Data {
     "Sunday",
     "Today",
   ] as const;
-  type TaskStatus = (typeof statuses)[number];
+  export type TaskStatus = (typeof statuses)[number];
 
   export const statusRank: Record<TaskStatus, Number> = {
     Wip: 1,
@@ -376,17 +376,52 @@ export class Tasks {
     })(t);
   }
 
-  subdivide(visbility_date: Date | undefined): {
+  static statusSplit(
+    statuses: Data.TaskStatus[],
+    tasks: Task[],
+  ): {
+    has_status: Task[];
+    other_status: Task[];
+  } {
+    const [has_status, other_status] = tasks.reduce<[Task[], Task[]]>(
+      ([pass, fail], task) => {
+        if (statuses.includes(task.data.status)) {
+          pass.push(task);
+        } else {
+          fail.push(task);
+        }
+        return [pass, fail];
+      },
+      [[], []],
+    );
+    return { has_status, other_status };
+  }
+
+  static dateSplit(tasks: Task[]): {
+    has_date: Task[];
+    no_date: Task[];
+  } {
+    const [has_date, no_date] = tasks.reduce<[Task[], Task[]]>(
+      ([pass, fail], task) => {
+        if (task.dates.first()) {
+          pass.push(task);
+        } else {
+          fail.push(task);
+        }
+        return [pass, fail];
+      },
+      [[], []],
+    );
+    return { has_date, no_date };
+  }
+
+  static subdivide(tasks: Task[]): {
     tasks: Task[];
     wip: Task[];
     non_wip: Task[];
     has_date: Task[];
     no_date: Task[];
   } {
-    const tasks = _.filter<Task>((t: Task) => {
-      return t.dates.isVisible(visbility_date);
-    })(this.tasks);
-
     const [wip, non_wip] = tasks.reduce<[Task[], Task[]]>(
       ([pass, fail], task) => {
         if (task.data.status == "Wip" || task.data.status == "Review") {
@@ -399,19 +434,17 @@ export class Tasks {
       [[], []],
     );
 
-    const [has_date, no_date] = non_wip.reduce<[Task[], Task[]]>(
-      ([pass, fail], task) => {
-        if (task.dates.first()) {
-          pass.push(task);
-        } else {
-          fail.push(task);
-        }
-        return [pass, fail];
-      },
-      [[], []],
-    );
+    const { has_date, no_date } = Tasks.dateSplit(non_wip);
+
     return { tasks, wip, non_wip, has_date, no_date };
   }
+
+  static visibilityFilter(tasks: Task[], visbility_date: Date | undefined) {
+    return _.filter<Task>((t: Task) => {
+      return t.dates.isVisible(visbility_date);
+    })(tasks);
+  }
+
   static tasksBy_FirstDate(tasks: Task[]): Task[] {
     return _.sortBy((t: Task) => t.dates.first()?.date, tasks);
   }

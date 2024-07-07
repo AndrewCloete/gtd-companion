@@ -56,6 +56,48 @@ function diffInDaysClass(diffInDays: number | undefined) {
     return "DayDiff_POSITIVE";
   }
 }
+function ProjectBlock(props: { project: string; tasks: m.Task[] }) {
+  return (
+    <div className="TaskLine">
+      <div className="Project">
+        <span>{props.project}</span>
+      </div>
+      <div>
+        {props.tasks.map((task) => {
+          return (
+            <div key={task.key()}>
+              <span
+                key={task.key()}
+                className={`Description TaskType_${task.classify()}`}
+              >
+                {task.cleanDescription()}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  <div className="DayTasks"></div>;
+}
+
+function TasksByProject(props: { tasks: m.Task[] }) {
+  const groups = _.groupBy((t: m.Task) => t.cleanProjext())(props.tasks);
+  return (
+    <div>
+      {Object.entries(groups).map((entry) => {
+        return (
+          <ProjectBlock
+            key={entry[0]}
+            project={entry[0]}
+            tasks={entry[1]}
+          ></ProjectBlock>
+        );
+      })}
+    </div>
+  );
+}
 
 function DayBlock(props: { block: vm.DayBlock }) {
   const date = props.block.date();
@@ -66,14 +108,10 @@ function DayBlock(props: { block: vm.DayBlock }) {
       <div className={`TaskDate DayBlockDate ${diffInDaysClass(diffInDays)}`}>
         <div>{date?.fmt("EEEEEE")}</div>
         <div className="Date">{date?.fmt("d MMM")}</div>
-        <div>({diffInDays})</div>
+        <div className="DateDiff">{diffInDays}</div>
         <div></div>
       </div>
-      <div className="DayTasks">
-        {props.block.tasks.map((task) => {
-          return <DayTask key={task.key()} task={task}></DayTask>;
-        })}
-      </div>
+      <TasksByProject tasks={props.block.tasks}></TasksByProject>
     </div>
   );
 }
@@ -109,6 +147,7 @@ function WeekBlocks(props: { week_blocks: vm.WeekBlock[] }) {
 }
 
 function NoScheduleBlock(props: { tasks: m.Task[] }) {
+  const { has_date, no_date } = m.Tasks.dateSplit(props.tasks);
   function NoScheduleTask(props: { task: m.Task }) {
     const date = props.task.dates.first();
     const diffInDays = date?.diffInDays(getToday());
@@ -137,10 +176,13 @@ function NoScheduleBlock(props: { tasks: m.Task[] }) {
   }
 
   return (
-    <div className="NoScheduleBlock">
-      {props.tasks.map((task) => {
-        return <NoScheduleTask key={task.key()} task={task}></NoScheduleTask>;
-      })}
+    <div>
+      <div className="NoScheduleBlock">
+        {has_date.map((task) => {
+          return <NoScheduleTask key={task.key()} task={task}></NoScheduleTask>;
+        })}
+      </div>
+      <TasksByProject tasks={no_date}></TasksByProject>
     </div>
   );
 }
@@ -230,8 +272,10 @@ function App() {
     };
   }, [handleKeyPress]);
 
-  const { tasks, wip, non_wip, has_date, no_date } =
-    gtdTasks.subdivide(visibleDate);
+  const { tasks, wip, non_wip, has_date, no_date } = m.Tasks.subdivide(
+    m.Tasks.visibilityFilter(gtdTasks.tasks, visibleDate),
+  );
+  const { has_status, other_status } = m.Tasks.statusSplit(["Todo"], no_date);
 
   const withMeta = m.Tasks.addMetaTasks(has_date);
   const week_blocks = vm.WeekBlock.fromTasks(withMeta);
@@ -242,7 +286,10 @@ function App() {
       <NoScheduleBlock tasks={wip}></NoScheduleBlock>
       <WeekBlocks week_blocks={week_blocks}></WeekBlocks>
       <NoScheduleBlock
-        tasks={m.Tasks.tasksBy_Status(no_date)}
+        tasks={m.Tasks.tasksBy_Status(has_status)}
+      ></NoScheduleBlock>
+      <NoScheduleBlock
+        tasks={m.Tasks.tasksBy_Status(other_status)}
       ></NoScheduleBlock>
     </div>
   );

@@ -22,7 +22,7 @@
 }
 
 .DayBlock {
-  margin: 5px 5px;
+  /* margin: 5px 5px; */
   padding-top: 5px;
   padding-bottom: 5px;
   /* border-style: solid; */
@@ -42,6 +42,9 @@
 
     .Date {
       font-weight: bold;
+    }
+    .DateDiff {
+      color: var(--success);
     }
   }
 }
@@ -108,7 +111,7 @@
 .WeekBlock {
   margin: 10px;
   margin-top: 15px;
-  padding: 5px;
+  /* padding: 5px; */
   border-top: 1px solid var(--darker);
   border-radius: 10px;
   /* margin-left: 5px; */
@@ -130,13 +133,13 @@
   background-color: var(--darker);
   transition-duration: 0.1s;
 }
-.WeekBlock:hover {
+.DayBlock:hover {
   background-color: var(--darkest);
 }
 .WeekBlocks {
-  /* margin: 10px; */
-  /* padding-top: 5px; */
-  /* padding-bottom: 5px; */
+  margin: 10px;
+  padding-top: 5px;
+  padding-bottom: 5px;
 }
 
 .NoScheduleBlock {
