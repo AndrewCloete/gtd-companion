@@ -75,6 +75,15 @@ export class WeekBlock {
       .join(" - ");
   }
 
+  weeksAway(d: Date): number | undefined {
+    const bookends = this.weekBookends();
+    const weeks = m.TaskDate.diffInWeeks(bookends?.monday, d);
+    if (!weeks) {
+      return undefined;
+    }
+    return Math.ceil(weeks);
+  }
+
   key(): string {
     const bookends = this.weekBookends();
     if (!bookends) {

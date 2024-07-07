@@ -42,29 +42,28 @@ function DayTask(props: { task: m.Task }) {
     </div>
   );
 }
+function diffInDaysClass(diffInDays: number | undefined) {
+  if (diffInDays == undefined) {
+    return "DayDiff_NONE";
+  }
+  if (diffInDays < 0) {
+    return "DayDiff_NEGATIVE";
+  }
+  if (diffInDays == 0) {
+    return "DayDiff_TODAY";
+  }
+  if (diffInDays == 0) {
+    return "DayDiff_POSITIVE";
+  }
+}
 
 function DayBlock(props: { block: vm.DayBlock }) {
   const date = props.block.date();
   const diffInDays = date?.diffInDays(getToday());
 
-  function diffInDaysClass() {
-    if (diffInDays == undefined) {
-      return "DayDiff_NONE";
-    }
-    if (diffInDays < 0) {
-      return "DayDiff_NEGATIVE";
-    }
-    if (diffInDays == 0) {
-      return "DayDiff_TODAY";
-    }
-    if (diffInDays == 0) {
-      return "DayDiff_POSITIVE";
-    }
-  }
-
   return (
     <div className="DayBlock">
-      <div className={`DayBlockDate ${diffInDaysClass()}`}>
+      <div className={`TaskDate DayBlockDate ${diffInDaysClass(diffInDays)}`}>
         <div>{date?.fmt("EEEEEE")}</div>
         <div className="Date">{date?.fmt("d MMM")}</div>
         <div>({diffInDays})</div>
@@ -82,7 +81,12 @@ function DayBlock(props: { block: vm.DayBlock }) {
 function WeekBlock(props: { week_block: vm.WeekBlock }) {
   return (
     <div className="WeekBlock">
-      <span className="WeekRange">{props.week_block.fmtWeekBookends()}</span>
+      <div className="WeekRangeDiv">
+        <span className="WeeksAway">
+          {props.week_block.weeksAway(getToday())}
+        </span>
+        <span className="WeekRange">{props.week_block.fmtWeekBookends()}</span>
+      </div>
       {props.week_block.tasks.map((day_block) => {
         return day_block.onlySundayTask() ? undefined : (
           <DayBlock key={day_block.key()} block={day_block}></DayBlock>
@@ -104,9 +108,72 @@ function WeekBlocks(props: { week_blocks: vm.WeekBlock[] }) {
   );
 }
 
+function NoScheduleBlock(props: { tasks: m.Task[] }) {
+  function NoScheduleTask(props: { task: m.Task }) {
+    const date = props.task.dates.first();
+    const diffInDays = date?.diffInDays(getToday());
+    return (
+      <div className="TaskLine">
+        <div
+          className={`TaskDate NoScheduleBlockDate ${diffInDaysClass(diffInDays)}`}
+        >
+          <span className="Dow">{date?.fmt("EEEEEE")}</span>
+          <span className="Date">{date?.fmt("dd MMM")}</span>
+
+          <span className="Diff">
+            {diffInDays ? <span>({diffInDays})</span> : undefined}
+          </span>
+        </div>
+        <div className="Project">
+          <span>{props.task.cleanProjext()}</span>
+        </div>
+        <span
+          className={`Description Status_${props.task.data.status} TaskType_${props.task.classify()}`}
+        >
+          {props.task.cleanDescription()}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="NoScheduleBlock">
+      {props.tasks.map((task) => {
+        return <NoScheduleTask key={task.key()} task={task}></NoScheduleTask>;
+      })}
+    </div>
+  );
+}
+function DatePicker(props: {
+  date: Date | undefined;
+  setDate: (date: Date | undefined) => void;
+}) {
+  function handleChange(event: any) {
+    props.setDate(event.target.value);
+  }
+  function clear(): void {
+    props.setDate(undefined);
+  }
+  function today(): void {
+    props.setDate(getToday());
+  }
+
+  return (
+    <div>
+      <button onClick={today}>Today</button>
+      <button onClick={clear}>Clear</button>
+      <input
+        type="text"
+        value={m.TaskDate.fmt(props.date, "yyyyMMdd")}
+        onChange={handleChange}
+      />
+    </div>
+  );
+}
+
 function App() {
   let [gtdTasks, setTasks] = useState<m.Tasks>(m.Tasks.empty());
-  let [visibleDate, setVisibleDate] = useState<Date>(getToday());
+  let [visibleDate, setVisibleDate] = useState<Date | undefined>(getToday());
 
   async function loadTasks() {
     const networkTasks = await getTasks();
@@ -171,7 +238,12 @@ function App() {
 
   return (
     <div className="App">
+      <DatePicker date={visibleDate} setDate={setVisibleDate}></DatePicker>
+      <NoScheduleBlock tasks={wip}></NoScheduleBlock>
       <WeekBlocks week_blocks={week_blocks}></WeekBlocks>
+      <NoScheduleBlock
+        tasks={m.Tasks.tasksBy_Status(no_date)}
+      ></NoScheduleBlock>
     </div>
   );
 

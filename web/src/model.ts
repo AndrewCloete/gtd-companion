@@ -84,6 +84,17 @@ export class TaskDate {
     return diffMs / (1000 * 3600 * 24);
   }
 
+  static diffInWeeks(
+    d1: Date | undefined,
+    d2: Date | undefined,
+  ): number | undefined {
+    if (!d1 || !d2) {
+      return;
+    }
+    const diffMs = d1.getTime() - d2.getTime();
+    return diffMs / (1000 * 3600 * 24 * 7);
+  }
+
   static taskDiffInDays(
     d1: TaskDate | undefined,
     d2: TaskDate | undefined,
@@ -99,7 +110,7 @@ export class TaskDate {
     if (!diff) {
       return undefined;
     }
-    return Math.floor(diff);
+    return Math.ceil(diff);
   }
 
   weekBookends(): WeekBookends | undefined {
@@ -145,12 +156,15 @@ export class TaskDate {
   static toMM_DD(date: Date): string {
     return format(date, "d MMM");
   }
-
-  fmt(f: string): string {
-    if (!this.date) {
+  static fmt(date: Date | undefined, f: string): string {
+    if (!date) {
       return "";
     }
-    return format(this.date, f);
+    return format(date, f);
+  }
+
+  fmt(f: string): string {
+    return TaskDate.fmt(this.date, f);
   }
 
   toYYYYMMDD(): string | undefined {
@@ -292,7 +306,7 @@ export class Task {
     if (this.dates.has("VISIBLE")) {
       return "VISIBLE_ONLY";
     }
-    throw "Clearly I missed some case";
+    return "NO_DATES";
   }
 
   addDiscriptionSuffix(suffix: string) {
