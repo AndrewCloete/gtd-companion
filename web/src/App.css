@@ -8,6 +8,7 @@
   --success: #8ec07c;
   --none: whitesmoke;
   --border: darkgrey;
+  --border: darkgrey;
 }
 
 .App {
@@ -19,6 +20,11 @@
 
 .TaskDate {
   font-size: 10px;
+}
+
+.Contexts {
+  color: var(--success);
+  font-weight: bold;
 }
 
 .DayBlock {
@@ -74,6 +80,8 @@
 
   .Description {
     width: 25em;
+    /* border-bottom: 1px dotted var(--border); */
+    display: inline;
   }
 
   .TaskType_NO_DATES {

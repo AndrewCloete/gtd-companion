@@ -36,9 +36,9 @@ function DayTask(props: { task: m.Task }) {
       <div className="Project">
         <span>{props.task.cleanProjext()}</span>
       </div>
-      <span className={`Description TaskType_${props.task.classify()}`}>
+      <div className={`Description TaskType_${props.task.classify()}`}>
         {props.task.cleanDescription()}
-      </span>
+      </div>
     </div>
   );
 }
@@ -66,12 +66,13 @@ function ProjectBlock(props: { project: string; tasks: m.Task[] }) {
         {props.tasks.map((task) => {
           return (
             <div key={task.key()}>
-              <span
+              <div
                 key={task.key()}
                 className={`Description TaskType_${task.classify()}`}
               >
                 {task.cleanDescription()}
-              </span>
+              </div>
+              <span className="Contexts">{task.cleanContexts().join(" ")}</span>
             </div>
           );
         })}
@@ -166,11 +167,11 @@ function NoScheduleBlock(props: { tasks: m.Task[] }) {
         <div className="Project">
           <span>{props.task.cleanProjext()}</span>
         </div>
-        <span
+        <div
           className={`Description Status_${props.task.data.status} TaskType_${props.task.classify()}`}
         >
           {props.task.cleanDescription()}
-        </span>
+        </div>
       </div>
     );
   }
@@ -239,7 +240,7 @@ function App() {
         "Socket is closed. Reconnect will be attempted in 1 second.",
         event.reason,
       );
-      setTimeout(function () {
+      setTimeout(function() {
         connect();
       }, 1000);
     });
