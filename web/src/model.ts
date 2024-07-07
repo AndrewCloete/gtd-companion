@@ -44,7 +44,7 @@ export type Dow = (typeof daysOfWeek)[number];
 
 export type WeekBookends = { monday: Date; sunday: Date };
 
-const dateKinds = ["START", "VISIBLE", "DUE", , "TEST"] as const;
+const dateKinds = ["START", "VISIBLE", "DUE"] as const;
 export type DateKind = (typeof dateKinds)[number];
 export class TaskDate {
   date: Date | undefined;
@@ -56,10 +56,10 @@ export class TaskDate {
   static toUnixMs(noDashDate: string): number {
     return Date.parse(
       noDashDate.slice(0, 4) +
-      "-" +
-      noDashDate.slice(4, 6) +
-      "-" +
-      noDashDate.slice(6, 8),
+        "-" +
+        noDashDate.slice(4, 6) +
+        "-" +
+        noDashDate.slice(6, 8),
     );
   }
   static toDate(noDashDate: string | undefined): Date | undefined {
@@ -74,17 +74,32 @@ export class TaskDate {
   }
 
   static diffInDays(
+    d1: Date | undefined,
+    d2: Date | undefined,
+  ): number | undefined {
+    if (!d1 || !d2) {
+      return;
+    }
+    const diffMs = d1.getTime() - d2.getTime();
+    return diffMs / (1000 * 3600 * 24);
+  }
+
+  static taskDiffInDays(
     d1: TaskDate | undefined,
     d2: TaskDate | undefined,
   ): number | undefined {
     if (!d1 || !d2) {
       return;
     }
-    if (!d1.date || !d2.date) {
-      return;
+    return TaskDate.diffInDays(d1.date, d2.date);
+  }
+
+  diffInDays(d2: Date) {
+    const diff = TaskDate.diffInDays(this.date, d2);
+    if (!diff) {
+      return undefined;
     }
-    const diffMs = d1.date.getTime() - d2.date.getTime();
-    return diffMs / (1000 * 3600 * 24);
+    return Math.floor(diff);
   }
 
   weekBookends(): WeekBookends | undefined {
@@ -165,6 +180,12 @@ export class TaskDates {
     return _.minBy((d: TaskDate) => d.date)(this.dates);
   }
 
+  removeDate(kind: DateKind) {
+    this.dates = this.dates.filter((d) => {
+      return d.kind !== kind;
+    });
+  }
+
   get(kind: DateKind): TaskDate | undefined {
     const kindMatch = this.dates.filter((d) => {
       return d.kind == kind;
@@ -176,6 +197,11 @@ export class TaskDates {
       return undefined;
     }
     return kindMatch[0];
+  }
+
+  has(kind: DateKind): boolean {
+    const kindMatch = this.get(kind);
+    return kindMatch !== undefined;
   }
 
   isVisible(d: Date | undefined): boolean {
@@ -190,21 +216,87 @@ export class TaskDates {
   }
 
   diff(k1: DateKind, k2: DateKind): number | undefined {
-    return TaskDate.diffInDays(this.get(k1), this.get(k2));
+    return TaskDate.taskDiffInDays(this.get(k1), this.get(k2));
   }
 
   durationDays() {
     return this.diff("DUE", "START");
+  }
+
+  hasDuration() {
+    return this.durationDays() !== undefined;
   }
 }
 
 export class Task {
   data: Data.Task;
   dates: TaskDates;
+  start_ref: Task | undefined;
+  due_ref: Task | undefined;
 
   constructor(data: Data.Task) {
     this.data = data;
     this.dates = new TaskDates(data.dates);
+  }
+
+  clone(): Task {
+    return new Task(JSON.parse(JSON.stringify(this.data)));
+  }
+
+  static splitWithDue(task: Task): Task[] {
+    if (!task.dates.hasDuration()) {
+      return [task];
+    }
+    const due = task.clone();
+    task.addDiscriptionSuffix(" (start)");
+    task.due_ref = due;
+    due.dates.removeDate("START");
+    due.addDiscriptionSuffix(" (end)");
+    due.start_ref = task;
+    return [task, due];
+  }
+
+  hasStartRef(): boolean {
+    return this.start_ref !== undefined;
+  }
+
+  hasDueRef(): boolean {
+    return this.due_ref !== undefined;
+  }
+
+  classify():
+    | "NO_DATES"
+    | "DUE"
+    | "DUE_WITH_START"
+    | "START"
+    | "START_WITH_DUE"
+    | "VISIBLE_ONLY" {
+    if (!this.dates) {
+      return "NO_DATES";
+    }
+    if (this.dates.has("DUE")) {
+      if (this.hasStartRef()) {
+        return "DUE_WITH_START";
+      }
+      if (this.hasDueRef()) {
+        return "START_WITH_DUE";
+      }
+      return "DUE";
+    }
+    if (this.dates.has("START")) {
+      if (this.hasStartRef()) {
+        return "DUE_WITH_START";
+      }
+      return "START";
+    }
+    if (this.dates.has("VISIBLE")) {
+      return "VISIBLE_ONLY";
+    }
+    throw "Clearly I missed some case";
+  }
+
+  addDiscriptionSuffix(suffix: string) {
+    this.data.description = this.data.description + suffix;
   }
 
   cleanDescription() {
@@ -253,7 +345,9 @@ export class Tasks {
   }
 
   constructor(tasks: Task[]) {
-    this.tasks = Tasks.tasksBy_FirstDate(tasks);
+    this.tasks = Tasks.tasksBy_FirstDate(
+      tasks.flatMap((t) => Task.splitWithDue(t)),
+    );
   }
 
   static groupByWeek(t: Task[]): Dictionary<Task[]> {

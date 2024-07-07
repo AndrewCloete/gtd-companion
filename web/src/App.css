@@ -14,30 +14,62 @@
   border-width: 1px;
   border-radius: 10px;
   display: flex;
-}
-.TaskLine {
-  display: flex;
 
-  .Project {
-    text-align: right;
-    width: 15em;
-    margin-right: 5px;
-    padding-right: 5px;
+  .DayBlockDate {
+    font-size: 10px;
+    text-align: center;
+    vertical-align: middle;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0px 5px 0px 5px;
+
+    .Date {
+      font-weight: bold;
+    }
+  }
+  .DayDiff_NONE {
+  }
+  .DayDiff_NEGATIVE {
+    color: darkred;
+  }
+  .DayDiff_TODAY {
+    color: yellow;
+  }
+  .DayDiff_POSITIVE {
   }
 
-  .Description {
-    width: 25em;
-  }
-}
+  .TaskLine {
+    display: flex;
 
-.DayBlockDate {
-  font-size: 10px;
-  text-align: center;
-  vertical-align: middle;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 0px 5px 0px 5px;
+    .Project {
+      text-align: right;
+      width: 15em;
+      margin-right: 5px;
+      padding-right: 5px;
+    }
+
+    .Description {
+      width: 25em;
+    }
+
+    .TaskType_NO_DATES {
+    }
+    .TaskType_DUE {
+      color: darkred;
+    }
+    .TaskType_DUE_WITH_START {
+      color: darkred;
+      font-style: italic;
+    }
+    .TaskType_START {
+    }
+    .TaskType_START_WITH_DUE {
+      color: darkgreen;
+    }
+    .TaskType_VISIBLE_ONLY {
+    }
+  }
 }
 
 .WeekBlock {

@@ -36,18 +36,38 @@ function DayTask(props: { task: m.Task }) {
       <div className="Project">
         <span>{props.task.cleanProjext()}</span>
       </div>
-      <span className="Description">{props.task.cleanDescription()}</span>
+      <span className={`Description TaskType_${props.task.classify()}`}>
+        {props.task.cleanDescription()}
+      </span>
     </div>
   );
 }
 
 function DayBlock(props: { block: vm.DayBlock }) {
   const date = props.block.date();
+  const diffInDays = date?.diffInDays(getToday());
+
+  function diffInDaysClass() {
+    if (diffInDays == undefined) {
+      return "DayDiff_NONE";
+    }
+    if (diffInDays < 0) {
+      return "DayDiff_NEGATIVE";
+    }
+    if (diffInDays == 0) {
+      return "DayDiff_TODAY";
+    }
+    if (diffInDays == 0) {
+      return "DayDiff_POSITIVE";
+    }
+  }
+
   return (
     <div className="DayBlock">
-      <div className="DayBlockDate">
+      <div className={`DayBlockDate ${diffInDaysClass()}`}>
         <div>{date?.fmt("EEEEEE")}</div>
-        <div>{date?.fmt("d MMM")}</div>
+        <div className="Date">{date?.fmt("d MMM")}</div>
+        <div>({diffInDays})</div>
         <div></div>
       </div>
       <div className="DayTasks">
@@ -110,7 +130,7 @@ function App() {
         "Socket is closed. Reconnect will be attempted in 1 second.",
         event.reason,
       );
-      setTimeout(function() {
+      setTimeout(function () {
         connect();
       }, 1000);
     });
