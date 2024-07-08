@@ -286,9 +286,11 @@ function App() {
       <DatePicker date={visibleDate} setDate={setVisibleDate}></DatePicker>
       <NoScheduleBlock tasks={wip}></NoScheduleBlock>
       <WeekBlocks week_blocks={week_blocks}></WeekBlocks>
+      <h2>Todo</h2>
       <NoScheduleBlock
         tasks={m.Tasks.tasksBy_Status(has_status)}
       ></NoScheduleBlock>
+      <h2>Backlog</h2>
       <NoScheduleBlock
         tasks={m.Tasks.tasksBy_Status(other_status)}
       ></NoScheduleBlock>

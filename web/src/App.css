@@ -1,25 +1,41 @@
+/* :root { */
+/*   --darkest: #292624; */
+/*   --darker: #332f2d; */
+/*   --dark: #3c3836; */
+/*   --alert: #cc241d; */
+/*   --warn: #d79921; */
+/*   --info: #458588; */
+/*   --success: #8ec07c; */
+/*   --text: whitesmoke; */
+/*   --border: darkgrey; */
+/* } */
+
 :root {
-  --darkest: #292624;
-  --darker: #332f2d;
-  --dark: #3c3836;
-  --alert: #cc241d;
-  --warn: #d79921;
-  --info: #458588;
-  --success: #8ec07c;
-  --none: whitesmoke;
-  --border: darkgrey;
-  --border: darkgrey;
+  --darkest: hsl(20, 7%, 13%);
+  --darker: hsl(15, 7%, 20%);
+  --dark: hsl(20, 7%, 24%);
+  --alert: hsl(2, 78%, 46%);
+  --warn: hsl(38, 73%, 49%);
+  --info: hsl(182, 33%, 40%);
+  --success: hsl(95, 35%, 62%);
+  --text: hsl(0, 0%, 96%); /* Whitesmoke */
+  --border: hsl(0, 0%, 41%); /* Darkgrey */
+  --border-radius: 15px;
 }
 
 .App {
   background-color: var(--dark);
-  color: var(--none);
+  color: var(--text);
   font-family: monospace;
   min-height: 100vh;
 }
 
 .TaskDate {
   font-size: 10px;
+}
+
+h2 {
+  padding-left: 15px;
 }
 
 .Contexts {
@@ -34,7 +50,8 @@
   /* border-style: solid; */
   border-color: var(--border);
   border-bottom: 1px solid var(--border);
-  border-radius: 10px;
+  border-bottom-left-radius: var(--border-radius);
+  border-bottom-right-radius: var(--border-radius);
   display: flex;
 
   .DayBlockDate {
@@ -121,22 +138,28 @@
   margin-top: 15px;
   /* padding: 5px; */
   border-top: 1px solid var(--darker);
-  border-radius: 10px;
+  border-bottom-left-radius: var(--border-radius);
+  border-bottom-right-radius: var(--border-radius);
   /* margin-left: 5px; */
   /* margin-right: 5px; */
   /* border-style: solid; */
   /* border-color: var(--darker); */
   /* border-width: 0px 0px 5px 0px; */
-  .WeekRange {
-    font-weight: bold;
-  }
-  .WeeksAway {
-    font-weight: bold;
-    width: 3em;
-    display: inline-block;
-  }
   .WeekRangeDiv {
-    /* padding-top: 5px; */
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    font-weight: bold;
+
+    .WeekRange {
+      color: var(--border);
+    }
+    .WeeksAway {
+      color: var(--border);
+      width: 1em;
+      display: inline-block;
+      text-align: right;
+    }
   }
   background-color: var(--darker);
   transition-duration: 0.1s;
