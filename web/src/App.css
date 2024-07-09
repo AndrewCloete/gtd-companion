@@ -6,7 +6,7 @@
 /*   --warn: #d79921; */
 /*   --info: #458588; */
 /*   --success: #8ec07c; */
-/*   --text: whitesmoke; */
+/*   --text-primary: whitesmoke; */
 /*   --border: darkgrey; */
 /* } */
 
@@ -18,14 +18,15 @@
   --warn: hsl(38, 73%, 49%);
   --info: hsl(182, 33%, 40%);
   --success: hsl(95, 35%, 62%);
-  --text: hsl(0, 0%, 96%); /* Whitesmoke */
+  --text-primary: hsl(0, 0%, 70%); /* Whitesmoke */
+  --text-secondary: hsl(0, 0%, 40%); /* Whitesmoke */
   --border: hsl(0, 0%, 41%); /* Darkgrey */
   --border-radius: 15px;
 }
 
 .App {
   background-color: var(--dark);
-  color: var(--text);
+  color: var(--text-primary);
   font-family: monospace;
   min-height: 100vh;
 }
@@ -49,9 +50,9 @@ h2 {
   padding-bottom: 5px;
   /* border-style: solid; */
   border-color: var(--border);
-  border-bottom: 1px solid var(--border);
   border-bottom-left-radius: var(--border-radius);
   border-bottom-right-radius: var(--border-radius);
+  border-bottom: 1px solid var(--border);
   display: flex;
 
   .DayBlockDate {
@@ -89,6 +90,8 @@ h2 {
     width: 13em;
     margin-right: 5px;
     padding-right: 5px;
+    color: var(--text-secondary);
+    font-style: italic;
   }
 
   .Status_Todo {
@@ -165,7 +168,8 @@ h2 {
   transition-duration: 0.1s;
 }
 .DayBlock:hover {
-  background-color: var(--darkest);
+  /* background-color: var(--darkest); */
+  box-shadow: 0 3px 2px var(--darkest);
 }
 .WeekBlocks {
   margin: 10px;

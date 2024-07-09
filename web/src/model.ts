@@ -56,10 +56,10 @@ export class TaskDate {
   static toUnixMs(noDashDate: string): number {
     return Date.parse(
       noDashDate.slice(0, 4) +
-      "-" +
-      noDashDate.slice(4, 6) +
-      "-" +
-      noDashDate.slice(6, 8),
+        "-" +
+        noDashDate.slice(4, 6) +
+        "-" +
+        noDashDate.slice(6, 8),
     );
   }
   static toDate(noDashDate: string | undefined): Date | undefined {
@@ -223,6 +223,7 @@ export class TaskDates {
       return true;
     }
     const visible_date = this.get("VISIBLE")?.date;
+    console.log(visible_date);
     if (!visible_date) {
       return true;
     }
@@ -439,7 +440,7 @@ export class Tasks {
       [[], []],
     );
 
-    const { has_date, no_date } = Tasks.dateSplit(non_wip);
+    const { has_date, no_date } = Tasks.dateSplit(tasks);
 
     return { tasks, wip, non_wip, has_date, no_date };
   }
