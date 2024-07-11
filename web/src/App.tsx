@@ -4,7 +4,7 @@ import { format } from "date-fns";
 
 import { useEffect, useState, useCallback } from "react";
 
-import env from "./.env.json";
+import env from "./.env.prod.json";
 import * as m from "./model";
 import * as vm from "./viewmodel";
 import { json } from "stream/consumers";
@@ -240,7 +240,7 @@ function App() {
         "Socket is closed. Reconnect will be attempted in 1 second.",
         event.reason,
       );
-      setTimeout(function() {
+      setTimeout(function () {
         connect();
       }, 1000);
     });

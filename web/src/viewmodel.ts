@@ -20,7 +20,7 @@ export class DayBlock {
     if (this.tasks.length == 0) {
       return undefined;
     }
-    return this.tasks[0].dates.first();
+    return this.tasks[0].dates.priority();
   }
 
   fmtDay(): string | undefined {

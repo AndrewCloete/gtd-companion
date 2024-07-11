@@ -44,7 +44,7 @@ export type Dow = (typeof daysOfWeek)[number];
 
 export type WeekBookends = { monday: Date; sunday: Date };
 
-const dateKinds = ["START", "VISIBLE", "DUE"] as const;
+const dateKinds = ["DUE", "START", "VISIBLE"] as const;
 export type DateKind = (typeof dateKinds)[number];
 export class TaskDate {
   date: Date | undefined;
@@ -138,7 +138,7 @@ export class TaskDate {
   }
 
   isDow(dow: Dow): boolean {
-    return this.dowStr() == dow;
+    return this.dowStr() === dow;
   }
 
   static toYMD(date: Date): { year: string; month: string; day: string } {
@@ -194,6 +194,15 @@ export class TaskDates {
     return _.minBy((d: TaskDate) => d.date)(this.dates);
   }
 
+  priority(): TaskDate | undefined {
+    for (const kind of dateKinds) {
+      if (this.has(kind)) {
+        return this.get(kind);
+      }
+    }
+    return undefined;
+  }
+
   removeDate(kind: DateKind) {
     this.dates = this.dates.filter((d) => {
       return d.kind !== kind;
@@ -202,7 +211,7 @@ export class TaskDates {
 
   get(kind: DateKind): TaskDate | undefined {
     const kindMatch = this.dates.filter((d) => {
-      return d.kind == kind;
+      return d.kind === kind;
     });
     if (kindMatch.length > 1) {
       throw `More than one entry for date kind ${kind}`;
@@ -223,7 +232,6 @@ export class TaskDates {
       return true;
     }
     const visible_date = this.get("VISIBLE")?.date;
-    console.log(visible_date);
     if (!visible_date) {
       return true;
     }
@@ -328,14 +336,14 @@ export class Task {
 
   contextsWithNone(): Data.Context[] {
     const contexts = this.cleanContexts();
-    if (contexts.length == 0) {
+    if (contexts.length === 0) {
       return ["(none)"];
     }
     return contexts;
   }
 
   isSunday(): boolean {
-    return this.data.status == "Sunday";
+    return this.data.status === "Sunday";
   }
 
   key(): string {
@@ -365,20 +373,20 @@ export class Tasks {
   }
 
   constructor(tasks: Task[]) {
-    this.tasks = Tasks.tasksBy_FirstDate(
+    this.tasks = Tasks.tasksBy_PriorityDate(
       tasks.flatMap((t) => Task.splitWithDue(t)),
     );
   }
 
   static groupByWeek(t: Task[]): Dictionary<Task[]> {
     return _.groupBy((t: Task) => {
-      return t.dates.first()?.weekBookends()?.monday;
+      return t.dates.priority()?.weekBookends()?.monday;
     })(t);
   }
 
   static groupByDay(t: Task[]) {
     return _.groupBy((t: Task) => {
-      return t.dates.first()?.date;
+      return t.dates.priority()?.date;
     })(t);
   }
 
@@ -409,7 +417,7 @@ export class Tasks {
   } {
     const [has_date, no_date] = tasks.reduce<[Task[], Task[]]>(
       ([pass, fail], task) => {
-        if (task.dates.first()) {
+        if (task.dates.priority()) {
           pass.push(task);
         } else {
           fail.push(task);
@@ -430,7 +438,7 @@ export class Tasks {
   } {
     const [wip, non_wip] = tasks.reduce<[Task[], Task[]]>(
       ([pass, fail], task) => {
-        if (task.data.status == "Wip" || task.data.status == "Review") {
+        if (task.data.status === "Wip" || task.data.status === "Review") {
           pass.push(task);
         } else {
           fail.push(task);
@@ -451,8 +459,8 @@ export class Tasks {
     })(tasks);
   }
 
-  static tasksBy_FirstDate(tasks: Task[]): Task[] {
-    return _.sortBy((t: Task) => t.dates.first()?.date, tasks);
+  static tasksBy_PriorityDate(tasks: Task[]): Task[] {
+    return _.sortBy((t: Task) => t.dates.priority()?.date, tasks);
   }
 
   static tasksBy_Status(tasks: Task[]): Task[] {
@@ -467,7 +475,7 @@ export class Tasks {
 
   static tasksBy_Context(tasks: Task[]): Task[] {
     let expanded = tasks.flatMap((t) => {
-      if (t.data.contexts.length == 0) {
+      if (t.data.contexts.length === 0) {
         return [t];
       }
       return t.data.contexts.map((c) => {
@@ -523,6 +531,6 @@ export class Tasks {
         });
       },
     );
-    return Tasks.tasksBy_FirstDate([...tasks, ...sundayTasks]);
+    return Tasks.tasksBy_PriorityDate([...tasks, ...sundayTasks]);
   }
 }
