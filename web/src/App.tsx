@@ -276,7 +276,11 @@ function App() {
   const { tasks, wip, non_wip, has_date, no_date } = m.Tasks.subdivide(
     m.Tasks.visibilityFilter(gtdTasks.tasks, visibleDate),
   );
-  const { has_status, other_status } = m.Tasks.statusSplit(["Todo"], no_date);
+  const todoSplit = m.Tasks.statusSplit(["Todo"], no_date);
+  const noStatusSplit = m.Tasks.statusSplit(
+    ["NoStatus"],
+    todoSplit.other_status,
+  );
 
   const withMeta = m.Tasks.addMetaTasks(has_date);
   const week_blocks = vm.WeekBlock.fromTasks(withMeta);
@@ -288,11 +292,11 @@ function App() {
       <WeekBlocks week_blocks={week_blocks}></WeekBlocks>
       <h2>Todo</h2>
       <NoScheduleBlock
-        tasks={m.Tasks.tasksBy_Status(has_status)}
+        tasks={m.Tasks.tasksBy_Status(todoSplit.has_status)}
       ></NoScheduleBlock>
       <h2>Backlog</h2>
       <NoScheduleBlock
-        tasks={m.Tasks.tasksBy_Status(other_status)}
+        tasks={m.Tasks.tasksBy_Status(noStatusSplit.has_status)}
       ></NoScheduleBlock>
     </div>
   );
