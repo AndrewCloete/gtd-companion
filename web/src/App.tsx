@@ -150,7 +150,7 @@ function WeekBlocks(props: { week_blocks: vm.WeekBlock[] }) {
 function NoScheduleBlock(props: { tasks: m.Task[] }) {
   const { has_date, no_date } = m.Tasks.dateSplit(props.tasks);
   function NoScheduleTask(props: { task: m.Task }) {
-    const date = props.task.dates.first();
+    const date = props.task.dates.priority();
     const diffInDays = date?.diffInDays(getToday());
     return (
       <div className="TaskLine">
@@ -296,43 +296,6 @@ function App() {
       ></NoScheduleBlock>
     </div>
   );
-
-  // return (
-  //   <div className="App">
-  //     {/* <header className="App-header">
-  //     </header> */}
-  //     <StatusSelector
-  //       selectedStatuses={selectedStatuses}
-  //       setSelectedStatuses={setSelectedStatuses}
-  //     ></StatusSelector>
-  //     <DatePicker
-  //       date={visibleDate}
-  //       setDate={setVisibleDate}
-  //       hasDue={hasDue}
-  //       setHasDue={setHasDue}
-  //       noDue={noDue}
-  //       setNoDue={setNoDue}
-  //     ></DatePicker>
-  //     {tabs.map((t) => {
-  //       return (
-  //         <button key={t} onClick={() => setSelectedTab(t)}>
-  //           {t}
-  //         </button>
-  //       );
-  //     })}
-  //     <button onClick={() => loadTasks()}>Load</button>
-  //     {((tab: Tab) => {
-  //       switch (tab) {
-  //         case "ByProject":
-  //           return <CompByProjects tasks={filteredTasks()}></CompByProjects>;
-  //         case "ByContext":
-  //           return <CompByContexts tasks={filteredTasks()}></CompByContexts>;
-  //         default:
-  //           return <WipFirst tasks={filteredTasks()}></WipFirst>;
-  //       }
-  //     })(selectedTab)}
-  //   </div>
-  // );
 }
 
 export default App;

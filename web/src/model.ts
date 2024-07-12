@@ -44,7 +44,7 @@ export type Dow = (typeof daysOfWeek)[number];
 
 export type WeekBookends = { monday: Date; sunday: Date };
 
-const dateKinds = ["DUE", "START", "VISIBLE"] as const;
+const dateKinds = ["START", "DUE", "VISIBLE"] as const;
 export type DateKind = (typeof dateKinds)[number];
 export class TaskDate {
   date: Date | undefined;
@@ -514,7 +514,7 @@ export class Tasks {
     }
 
     const input_dates: Date[] = tasks
-      .map((t) => t.dates.first()?.date)
+      .map((t) => t.dates.priority()?.date)
       .filter(isDefined);
 
     const sundayTasks: Task[] = generateSundayDates(input_dates).map(
