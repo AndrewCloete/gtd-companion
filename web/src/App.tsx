@@ -1,7 +1,12 @@
 import "./App.css";
 import * as _ from "lodash/fp";
 import { isValid, parse } from "date-fns";
-import { set, unset } from "./redux/projectFilter";
+import {
+  setProject,
+  unsetProject,
+  setContext,
+  unsetContext,
+} from "./redux/projectFilter";
 import { useAppSelector, useAppDispatch } from "./hooks";
 
 import { useEffect, useState, useCallback } from "react";
@@ -47,10 +52,13 @@ function diffInDaysClass(diffInDays: number | undefined) {
   }
 }
 function ProjectBlock(props: { project: string; tasks: m.Task[] }) {
+  const dispatch = useAppDispatch();
   return (
     <div className="TaskLine">
       <div className="Project">
-        <span>{props.project}</span>
+        <span onClick={() => dispatch(setProject(props.project))}>
+          {props.project}
+        </span>
       </div>
       <div>
         {props.tasks.map((task) => {
@@ -62,7 +70,17 @@ function ProjectBlock(props: { project: string; tasks: m.Task[] }) {
               >
                 {task.cleanDescription()}
               </div>
-              <span className="Contexts">{task.cleanContexts().join(" ")}</span>
+              {task.cleanContexts().map((c) => {
+                return (
+                  <span
+                    className="Contexts"
+                    key={c}
+                    onClick={() => dispatch(setContext(c))}
+                  >
+                    {c + " "}
+                  </span>
+                );
+              })}
             </div>
           );
         })}
@@ -155,8 +173,10 @@ function WeekBlocks(props: { week_blocks: vm.WeekBlock[] }) {
 function NoScheduleBlock(props: { tasks: m.Task[] }) {
   const { has_date, no_date } = m.Tasks.dateSplit(props.tasks);
   function NoScheduleTask(props: { task: m.Task }) {
+    const dispatch = useAppDispatch();
     const date = props.task.dates.priority();
     const diffInDays = date?.diffInDays(getToday());
+
     return (
       <div className="TaskLine">
         <div
@@ -170,7 +190,9 @@ function NoScheduleBlock(props: { tasks: m.Task[] }) {
           </span>
         </div>
         <div className="Project">
-          <span>{props.task.cleanProjext()}</span>
+          <span onClick={() => dispatch(setProject(props.task.cleanProjext()))}>
+            {props.task.cleanProjext()}
+          </span>
         </div>
         <div
           className={`Description Status_${props.task.data.status} TaskType_${props.task.classify()}`}
@@ -230,48 +252,8 @@ function DatePicker(props: {
   );
 }
 
-function DropdownFilter(props: { items: string[] }) {
-  const dispatch = useAppDispatch();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedItem, setSelectedItem] = useState<string | null>(null);
-
-  const filteredItems = props.items.filter((item) =>
-    item.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
-  function clear(): void {
-    dispatch(unset());
-  }
-
-  const handleSelect = (item: string) => {
-    setSelectedItem(item);
-    console.log(item);
-    dispatch(set(item));
-  };
-
-  return (
-    <div>
-      <button onClick={clear}>Clear</button>
-      <input
-        type="text"
-        placeholder="Search..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-      />
-      <select
-        value={selectedItem || ""}
-        onChange={(e) => handleSelect(e.target.value)}
-      >
-        {filteredItems.map((item) => (
-          <option key={item} value={item}>
-            {item}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
 function App() {
+  const dispatch = useAppDispatch();
   let [gtdTasks, setTasks] = useState<m.Tasks>(m.Tasks.empty());
   let [visibleDate, setVisibleDate] = useState<Date | undefined>(getToday());
 
@@ -297,7 +279,7 @@ function App() {
         "Socket is closed. Reconnect will be attempted in 1 second.",
         event.reason,
       );
-      setTimeout(function () {
+      setTimeout(function() {
         connect();
       }, 1000);
     });
@@ -330,13 +312,14 @@ function App() {
     };
   }, [handleKeyPress]);
 
-  const projectFilter = useAppSelector((state) => state.projectFilter.value);
+  const projectFilter = useAppSelector((state) => state.taskFilter.project);
+  const contextFilter = useAppSelector((state) => state.taskFilter.context);
 
   const { tasks, wip, non_wip, has_date, no_date } = m.Tasks.subdivide(
-    m.Tasks.visibilityFilter(
-      gtdTasks.filter_by_project(projectFilter).tasks,
-      visibleDate,
-    ),
+    gtdTasks
+      .filter_by_project(projectFilter)
+      .filter_by_context(contextFilter)
+      .filter_by_visibility(visibleDate).tasks,
   );
   const todoSplit = m.Tasks.statusSplit(["Todo"], no_date);
   const noStatusSplit = m.Tasks.statusSplit(
@@ -350,7 +333,14 @@ function App() {
   return (
     <div className="App">
       <DatePicker date={visibleDate} setDate={setVisibleDate}></DatePicker>
-      <DropdownFilter items={gtdTasks.unique_projects()}></DropdownFilter>
+      <div>
+        <button onClick={() => dispatch(unsetProject())}>Clear</button>
+        <span>{projectFilter}</span>
+      </div>
+      <div>
+        <button onClick={() => dispatch(unsetContext())}>Clear</button>
+        <span>{contextFilter}</span>
+      </div>
       <NoScheduleBlock tasks={wip}></NoScheduleBlock>
       <WeekBlocks week_blocks={week_blocks}></WeekBlocks>
       <h2>Todo</h2>

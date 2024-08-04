@@ -1,9 +1,9 @@
 import { configureStore } from "@reduxjs/toolkit";
-import projectFilterReducer from "./redux/projectFilter";
+import filterReducer from "./redux/projectFilter";
 
 export const store = configureStore({
   reducer: {
-    projectFilter: projectFilterReducer,
+    taskFilter: filterReducer,
   },
 });
 

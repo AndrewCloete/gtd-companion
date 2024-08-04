@@ -56,10 +56,10 @@ export class TaskDate {
   static toUnixMs(noDashDate: string): number {
     return Date.parse(
       noDashDate.slice(0, 4) +
-        "-" +
-        noDashDate.slice(4, 6) +
-        "-" +
-        noDashDate.slice(6, 8),
+      "-" +
+      noDashDate.slice(4, 6) +
+      "-" +
+      noDashDate.slice(6, 8),
     );
   }
   static toDate(noDashDate: string | undefined): Date | undefined {
@@ -377,6 +377,24 @@ export class Tasks {
     return new Tasks(this.tasks.filter((t) => t.cleanProjext() == project));
   }
 
+  filter_by_context(context: string | undefined): Tasks {
+    if (!context) {
+      return this;
+    }
+    return new Tasks(
+      this.tasks.filter((t) => t.contextsWithNone().includes(context)),
+    );
+  }
+
+  filter_by_visibility(visbility_date: Date | undefined) {
+    if (!visbility_date) {
+      return this;
+    }
+    return new Tasks(
+      this.tasks.filter((t) => t.dates.isVisible(visbility_date)),
+    );
+  }
+
   static empty(): Tasks {
     return new Tasks([]);
   }
@@ -468,12 +486,6 @@ export class Tasks {
     const { has_date, no_date } = Tasks.dateSplit(tasks);
 
     return { tasks, wip, non_wip, has_date, no_date };
-  }
-
-  static visibilityFilter(tasks: Task[], visbility_date: Date | undefined) {
-    return _.filter<Task>((t: Task) => {
-      return t.dates.isVisible(visbility_date);
-    })(tasks);
   }
 
   static tasksBy_PriorityDate(tasks: Task[]): Task[] {
