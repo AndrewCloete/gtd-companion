@@ -1,6 +1,8 @@
 import "./App.css";
 import * as _ from "lodash/fp";
 import { isValid, parse } from "date-fns";
+import { set, unset } from "./redux/projectFilter";
+import { useAppSelector, useAppDispatch } from "./hooks";
 
 import { useEffect, useState, useCallback } from "react";
 
@@ -228,6 +230,47 @@ function DatePicker(props: {
   );
 }
 
+function DropdownFilter(props: { items: string[] }) {
+  const dispatch = useAppDispatch();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedItem, setSelectedItem] = useState<string | null>(null);
+
+  const filteredItems = props.items.filter((item) =>
+    item.toLowerCase().includes(searchTerm.toLowerCase()),
+  );
+  function clear(): void {
+    dispatch(unset());
+  }
+
+  const handleSelect = (item: string) => {
+    setSelectedItem(item);
+    console.log(item);
+    dispatch(set(item));
+  };
+
+  return (
+    <div>
+      <button onClick={clear}>Clear</button>
+      <input
+        type="text"
+        placeholder="Search..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+      />
+      <select
+        value={selectedItem || ""}
+        onChange={(e) => handleSelect(e.target.value)}
+      >
+        {filteredItems.map((item) => (
+          <option key={item} value={item}>
+            {item}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 function App() {
   let [gtdTasks, setTasks] = useState<m.Tasks>(m.Tasks.empty());
   let [visibleDate, setVisibleDate] = useState<Date | undefined>(getToday());
@@ -287,8 +330,13 @@ function App() {
     };
   }, [handleKeyPress]);
 
+  const projectFilter = useAppSelector((state) => state.projectFilter.value);
+
   const { tasks, wip, non_wip, has_date, no_date } = m.Tasks.subdivide(
-    m.Tasks.visibilityFilter(gtdTasks.tasks, visibleDate),
+    m.Tasks.visibilityFilter(
+      gtdTasks.filter_by_project(projectFilter).tasks,
+      visibleDate,
+    ),
   );
   const todoSplit = m.Tasks.statusSplit(["Todo"], no_date);
   const noStatusSplit = m.Tasks.statusSplit(
@@ -302,6 +350,7 @@ function App() {
   return (
     <div className="App">
       <DatePicker date={visibleDate} setDate={setVisibleDate}></DatePicker>
+      <DropdownFilter items={gtdTasks.unique_projects()}></DropdownFilter>
       <NoScheduleBlock tasks={wip}></NoScheduleBlock>
       <WeekBlocks week_blocks={week_blocks}></WeekBlocks>
       <h2>Todo</h2>

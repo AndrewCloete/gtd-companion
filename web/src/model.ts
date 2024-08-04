@@ -364,6 +364,19 @@ export class Task {
 export class Tasks {
   tasks: Task[];
 
+  unique_projects(): string[] {
+    return Array.from(
+      new Set(this.tasks.map((t) => t.cleanProjext())).values(),
+    );
+  }
+
+  filter_by_project(project: string | undefined): Tasks {
+    if (!project) {
+      return this;
+    }
+    return new Tasks(this.tasks.filter((t) => t.cleanProjext() == project));
+  }
+
   static empty(): Tasks {
     return new Tasks([]);
   }
