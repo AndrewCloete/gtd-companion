@@ -1,6 +1,6 @@
 import "./App.css";
 import * as _ from "lodash/fp";
-import { format } from "date-fns";
+import { isValid, parse } from "date-fns";
 
 import { useEffect, useState, useCallback } from "react";
 
@@ -30,18 +30,6 @@ async function getTasks(): Promise<m.Tasks> {
   return m.Tasks.fromData(tasks_data);
 }
 
-function DayTask(props: { task: m.Task }) {
-  return (
-    <div className="TaskLine">
-      <div className="Project">
-        <span>{props.task.cleanProjext()}</span>
-      </div>
-      <div className={`Description TaskType_${props.task.classify()}`}>
-        {props.task.cleanDescription()}
-      </div>
-    </div>
-  );
-}
 function diffInDaysClass(diffInDays: number | undefined) {
   if (diffInDays == undefined) {
     return "DayDiff_NONE";
@@ -79,8 +67,23 @@ function ProjectBlock(props: { project: string; tasks: m.Task[] }) {
       </div>
     </div>
   );
+}
 
-  <div className="DayTasks"></div>;
+function TasksByTag(props: { tasks: m.Task[] }) {
+  const groups = _.groupBy((t: m.Task) => t.singleContext())(props.tasks);
+  return (
+    <div>
+      {Object.entries(groups).map((entry) => {
+        return (
+          <ProjectBlock
+            key={entry[0]}
+            project={entry[0]}
+            tasks={entry[1]}
+          ></ProjectBlock>
+        );
+      })}
+    </div>
+  );
 }
 
 function TasksByProject(props: { tasks: m.Task[] }) {
@@ -191,8 +194,23 @@ function DatePicker(props: {
   date: Date | undefined;
   setDate: (date: Date | undefined) => void;
 }) {
+  let [dateStr, setDateStr] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (props.date) {
+      setDateStr(m.TaskDate.fmt(props.date, "yyyyMMdd"));
+    }
+  }, []);
+
   function handleChange(event: any) {
-    props.setDate(event.target.value);
+    let val = event.target.value;
+    console.log(val);
+    setDateStr(val);
+    const newDate = parse(val, "yyyyMMdd", new Date());
+    if (isValid(newDate)) {
+      console.log(newDate);
+      props.setDate(newDate);
+    }
   }
   function clear(): void {
     props.setDate(undefined);
@@ -205,11 +223,7 @@ function DatePicker(props: {
     <div>
       <button onClick={today}>Today</button>
       <button onClick={clear}>Clear</button>
-      <input
-        type="text"
-        value={m.TaskDate.fmt(props.date, "yyyyMMdd")}
-        onChange={handleChange}
-      />
+      <input type="text" value={dateStr} onChange={handleChange} />
     </div>
   );
 }

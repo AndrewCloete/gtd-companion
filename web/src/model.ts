@@ -342,6 +342,10 @@ export class Task {
     return contexts;
   }
 
+  singleContext(): Data.Context {
+    return this.contextsWithNone()[0];
+  }
+
   isSunday(): boolean {
     return this.data.status === "Sunday";
   }
