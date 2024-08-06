@@ -50,6 +50,35 @@ cargo run --bin gtd-cli -- -j true > /tmp/gtd-out.json
 cargo install --path .
 ```
 
+```sh
+vim ~/.config/systemd/user/gtd-server.service
+```
+
+```conf
+[Unit]
+Description=gtd-server
+DefaultDependencies=no
+Before=shutdown.target
+
+[Service]
+Type=simple
+ExecStart=/home/user/.cargo/bin/gtd-server
+TimeoutStartSec=0
+RestartSec=60
+Restart=on-failure
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target
+```
+```sh
+systemctl --user daemon-reload
+export PROM_SERVICE="gtd-server"
+systemctl --user enable ${PROM_SERVICE}.service
+systemctl --user start ${PROM_SERVICE}.service
+systemctl --user status ${PROM_SERVICE}.service
+```
+
 
 
 
