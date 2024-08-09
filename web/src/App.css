@@ -31,6 +31,10 @@
   min-height: 100vh;
 }
 
+.Split {
+  display: flex;
+}
+
 .TaskDate {
   font-size: 10px;
 }

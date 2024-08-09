@@ -65,6 +65,7 @@ function ProjectBlock(props: { project: string; tasks: m.Task[] }) {
           return (
             <div key={task.key()}>
               <div
+                id={task.cleanDescription()}
                 key={task.key()}
                 className={`Description TaskType_${task.classify()}`}
               >
@@ -252,14 +253,17 @@ function DatePicker(props: {
   );
 }
 
+type Range = { range_key: string; start: number; end: number };
+
 function App() {
   const dispatch = useAppDispatch();
   let [gtdTasks, setTasks] = useState<m.Tasks>(m.Tasks.empty());
+  let [ranges, setRanges] = useState<Range[]>([]);
   let [visibleDate, setVisibleDate] = useState<Date | undefined>(getToday());
 
   async function loadTasks() {
     const networkTasks = await getTasks();
-    setTasks(networkTasks);
+    setTasks(networkTasks.split_with_due());
   }
 
   function connect() {
@@ -279,7 +283,7 @@ function App() {
         "Socket is closed. Reconnect will be attempted in 1 second.",
         event.reason,
       );
-      setTimeout(function() {
+      setTimeout(function () {
         connect();
       }, 1000);
     });
@@ -296,6 +300,38 @@ function App() {
     return;
   }, []);
 
+  const projectFilter = useAppSelector((state) => state.taskFilter.project);
+  const contextFilter = useAppSelector((state) => state.taskFilter.context);
+
+  useEffect(() => {
+    function vertical_range(range_key: string): Range | undefined {
+      function get_top(id: string): number | undefined {
+        const element = document.getElementById(id);
+        if (!element) {
+          return undefined;
+        }
+        const { top } = element.getBoundingClientRect();
+        return top;
+      }
+      const start = get_top(`${range_key} (start)`);
+      const end = get_top(`${range_key} (end)`);
+      if (!start || !end) {
+        return undefined;
+      }
+      return { range_key, start, end };
+    }
+    setRanges(
+      gtdTasks
+        .range_keys()
+        .map((rk) => vertical_range(rk))
+        .filter((r: Range | undefined): r is Range => {
+          return r !== undefined;
+        }),
+    );
+
+    return;
+  }, [gtdTasks, projectFilter, contextFilter]);
+
   const handleKeyPress = useCallback((event: any) => {
     if (event.key == "r") {
       loadTasks();
@@ -311,9 +347,6 @@ function App() {
       document.removeEventListener("keydown", handleKeyPress);
     };
   }, [handleKeyPress]);
-
-  const projectFilter = useAppSelector((state) => state.taskFilter.project);
-  const contextFilter = useAppSelector((state) => state.taskFilter.context);
 
   const { tasks, wip, non_wip, has_date, no_date } = m.Tasks.subdivide(
     gtdTasks
@@ -332,25 +365,65 @@ function App() {
 
   return (
     <div className="App">
-      <DatePicker date={visibleDate} setDate={setVisibleDate}></DatePicker>
-      <div>
-        <button onClick={() => dispatch(unsetProject())}>Clear</button>
-        <span>{projectFilter}</span>
+      <div className="Split">
+        <div>
+          <DatePicker date={visibleDate} setDate={setVisibleDate}></DatePicker>
+          <div>
+            <button onClick={() => dispatch(unsetProject())}>Clear</button>
+            <span>{projectFilter}</span>
+          </div>
+          <div>
+            <button onClick={() => dispatch(unsetContext())}>Clear</button>
+            <span>{contextFilter}</span>
+          </div>
+          <NoScheduleBlock tasks={wip}></NoScheduleBlock>
+          <WeekBlocks week_blocks={week_blocks}></WeekBlocks>
+          <h2>Todo</h2>
+          <NoScheduleBlock
+            tasks={m.Tasks.tasksBy_Status(todoSplit.has_status)}
+          ></NoScheduleBlock>
+          <h2>Backlog</h2>
+          <NoScheduleBlock
+            tasks={m.Tasks.tasksBy_Status(noStatusSplit.has_status)}
+          ></NoScheduleBlock>
+        </div>
+        <div style={{ minWidth: "30px" }}>
+          {ranges.map((r) => {
+            console.log(r);
+            const height = Math.abs(r.start - r.end);
+            return (
+              <div
+                style={{
+                  position: "absolute",
+                  top: `${r.start}px`,
+                  height: `${height}px`,
+                  width: "17px", // width of the box
+                  // background: "var(--darker)",
+                  background: "var(--darker)",
+                  transform: "translateX(-50%)", // center the box horizontally
+                  textAlign: "center",
+                  display: "flex",
+                  padding: "2px",
+                }}
+              >
+                <span
+                  style={{
+                    // position: "absolute",
+                    // top: "50%",
+                    // left: "50%",
+                    writingMode: "vertical-lr",
+                    // transform: "rotate(90deg) translate(-50%, -50%)",
+                    whiteSpace: "nowrap",
+                    color: "white",
+                  }}
+                >
+                  {r.range_key}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
-      <div>
-        <button onClick={() => dispatch(unsetContext())}>Clear</button>
-        <span>{contextFilter}</span>
-      </div>
-      <NoScheduleBlock tasks={wip}></NoScheduleBlock>
-      <WeekBlocks week_blocks={week_blocks}></WeekBlocks>
-      <h2>Todo</h2>
-      <NoScheduleBlock
-        tasks={m.Tasks.tasksBy_Status(todoSplit.has_status)}
-      ></NoScheduleBlock>
-      <h2>Backlog</h2>
-      <NoScheduleBlock
-        tasks={m.Tasks.tasksBy_Status(noStatusSplit.has_status)}
-      ></NoScheduleBlock>
     </div>
   );
 }

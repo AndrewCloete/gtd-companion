@@ -56,10 +56,10 @@ export class TaskDate {
   static toUnixMs(noDashDate: string): number {
     return Date.parse(
       noDashDate.slice(0, 4) +
-      "-" +
-      noDashDate.slice(4, 6) +
-      "-" +
-      noDashDate.slice(6, 8),
+        "-" +
+        noDashDate.slice(4, 6) +
+        "-" +
+        noDashDate.slice(6, 8),
     );
   }
   static toDate(noDashDate: string | undefined): Date | undefined {
@@ -256,6 +256,7 @@ export class Task {
   dates: TaskDates;
   start_ref: Task | undefined;
   due_ref: Task | undefined;
+  range_key: string | undefined;
 
   constructor(data: Data.Task) {
     this.data = data;
@@ -271,6 +272,7 @@ export class Task {
       return [task];
     }
     const due = task.clone();
+    task.range_key = task.cleanDescription();
     task.addDiscriptionSuffix(" (start)");
     task.due_ref = due;
     due.dates.removeDate("START");
@@ -386,13 +388,25 @@ export class Tasks {
     );
   }
 
-  filter_by_visibility(visbility_date: Date | undefined) {
+  filter_by_visibility(visbility_date: Date | undefined): Tasks {
     if (!visbility_date) {
       return this;
     }
     return new Tasks(
       this.tasks.filter((t) => t.dates.isVisible(visbility_date)),
     );
+  }
+
+  split_with_due(): Tasks {
+    return new Tasks(this.tasks.flatMap((t) => Task.splitWithDue(t)));
+  }
+
+  range_keys(): string[] {
+    return this.tasks
+      .map((t) => t.range_key)
+      .filter((d: string | undefined): d is string => {
+        return d !== undefined;
+      });
   }
 
   static empty(): Tasks {
@@ -408,9 +422,7 @@ export class Tasks {
   }
 
   constructor(tasks: Task[]) {
-    this.tasks = Tasks.tasksBy_PriorityDate(
-      tasks.flatMap((t) => Task.splitWithDue(t)),
-    );
+    this.tasks = Tasks.tasksBy_PriorityDate(tasks);
   }
 
   static groupByWeek(t: Task[]): Dictionary<Task[]> {
