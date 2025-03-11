@@ -59,7 +59,7 @@ export class TaskDate {
         "-" +
         noDashDate.slice(4, 6) +
         "-" +
-        noDashDate.slice(6, 8),
+        noDashDate.slice(6, 8)
     );
   }
   static toDate(noDashDate: string | undefined): Date | undefined {
@@ -75,7 +75,7 @@ export class TaskDate {
 
   static diffInDays(
     d1: Date | undefined,
-    d2: Date | undefined,
+    d2: Date | undefined
   ): number | undefined {
     if (!d1 || !d2) {
       return;
@@ -86,7 +86,7 @@ export class TaskDate {
 
   static diffInWeeks(
     d1: Date | undefined,
-    d2: Date | undefined,
+    d2: Date | undefined
   ): number | undefined {
     if (!d1 || !d2) {
       return;
@@ -97,7 +97,7 @@ export class TaskDate {
 
   static taskDiffInDays(
     d1: TaskDate | undefined,
-    d2: TaskDate | undefined,
+    d2: TaskDate | undefined
   ): number | undefined {
     if (!d1 || !d2) {
       return;
@@ -344,6 +344,16 @@ export class Task {
     return contexts;
   }
 
+  explodeByContext(): Task[] {
+    return (
+      this.data.contexts.length === 0 ? ["none"] : this.data.contexts
+    ).map((c) => {
+      let clone = this.clone();
+      clone.data.contexts = [c];
+      return clone;
+    });
+  }
+
   singleContext(): Data.Context {
     return this.contextsWithNone()[0];
   }
@@ -368,7 +378,7 @@ export class Tasks {
 
   unique_projects(): string[] {
     return Array.from(
-      new Set(this.tasks.map((t) => t.cleanProjext())).values(),
+      new Set(this.tasks.map((t) => t.cleanProjext())).values()
     );
   }
 
@@ -384,7 +394,7 @@ export class Tasks {
       return this;
     }
     return new Tasks(
-      this.tasks.filter((t) => t.contextsWithNone().includes(context)),
+      this.tasks.filter((t) => t.contextsWithNone().includes(context))
     );
   }
 
@@ -393,7 +403,7 @@ export class Tasks {
       return this;
     }
     return new Tasks(
-      this.tasks.filter((t) => t.dates.isVisible(visbility_date)),
+      this.tasks.filter((t) => t.dates.isVisible(visbility_date))
     );
   }
 
@@ -417,7 +427,7 @@ export class Tasks {
     return new Tasks(
       data.map((d) => {
         return new Task(d);
-      }),
+      })
     );
   }
 
@@ -439,7 +449,7 @@ export class Tasks {
 
   static statusSplit(
     statuses: Data.TaskStatus[],
-    tasks: Task[],
+    tasks: Task[]
   ): {
     has_status: Task[];
     other_status: Task[];
@@ -453,7 +463,7 @@ export class Tasks {
         }
         return [pass, fail];
       },
-      [[], []],
+      [[], []]
     );
     return { has_status, other_status };
   }
@@ -471,7 +481,7 @@ export class Tasks {
         }
         return [pass, fail];
       },
-      [[], []],
+      [[], []]
     );
     return { has_date, no_date };
   }
@@ -492,7 +502,7 @@ export class Tasks {
         }
         return [pass, fail];
       },
-      [[], []],
+      [[], []]
     );
 
     const { has_date, no_date } = Tasks.dateSplit(tasks);
@@ -532,10 +542,10 @@ export class Tasks {
     function generateSundayDates(dates: Date[]): Date[] {
       const sundays: Date[] = [];
       const startDate = new Date(
-        Math.min(...dates.map((date) => date.getTime())),
+        Math.min(...dates.map((date) => date.getTime()))
       );
       const endDate = new Date(
-        Math.max(...dates.map((date) => date.getTime())),
+        Math.max(...dates.map((date) => date.getTime()))
       );
 
       let current = new Date(startDate);
@@ -570,7 +580,7 @@ export class Tasks {
             due: TaskDate.toYYYYMMDD(sunday),
           },
         });
-      },
+      }
     );
     return Tasks.tasksBy_PriorityDate([...tasks, ...sundayTasks]);
   }

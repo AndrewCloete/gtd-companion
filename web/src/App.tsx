@@ -16,6 +16,8 @@ import * as m from "./model";
 import * as vm from "./viewmodel";
 import { json } from "stream/consumers";
 
+type TaskGroupBy = "Project" | "Tags"
+
 function getToday(): Date {
   return new Date();
 }
@@ -90,17 +92,57 @@ function ProjectBlock(props: { project: string; tasks: m.Task[] }) {
   );
 }
 
+function ContextBlock(props: { context: string; tasks: m.Task[] }) {
+  const dispatch = useAppDispatch();
+  return (
+    <div className="TaskLine">
+      <div className="Project">
+        <span onClick={() => dispatch(setContext(props.context))}>
+          {props.context}
+        </span>
+      </div>
+      <div>
+        {props.tasks.map((task) => {
+          return (
+            <div key={task.key()}>
+              <span
+                className="Contexts"
+                onClick={() => dispatch(setProject(task.cleanProjext()))}
+              >
+                {task.cleanProjext() + " "}
+              </span>
+              <div
+                id={task.cleanDescription()}
+                key={task.key()}
+                className={`Description TaskType_${task.classify()}`}
+              >
+                {task.cleanDescription()}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function TasksByGroup(props: { tasks: m.Task[], groupby: TaskGroupBy }) {
+  return (
+    props.groupby === "Project" ? <TasksByProject tasks={props.tasks} /> : <TasksByTag tasks={props.tasks} />
+  )
+}
+
 function TasksByTag(props: { tasks: m.Task[] }) {
-  const groups = _.groupBy((t: m.Task) => t.singleContext())(props.tasks);
+  const groups = _.groupBy((t: m.Task) => t.singleContext())(props.tasks.flatMap(t => t.explodeByContext()));
   return (
     <div>
       {Object.entries(groups).map((entry) => {
         return (
-          <ProjectBlock
+          <ContextBlock
             key={entry[0]}
-            project={entry[0]}
+            context={entry[0]}
             tasks={entry[1]}
-          ></ProjectBlock>
+          ></ContextBlock>
         );
       })}
     </div>
@@ -171,7 +213,7 @@ function WeekBlocks(props: { week_blocks: vm.WeekBlock[] }) {
   );
 }
 
-function NoScheduleBlock(props: { tasks: m.Task[] }) {
+function NoScheduleBlock(props: { tasks: m.Task[], groupby: TaskGroupBy }) {
   const { has_date, no_date } = m.Tasks.dateSplit(props.tasks);
   function NoScheduleTask(props: { task: m.Task }) {
     const dispatch = useAppDispatch();
@@ -211,7 +253,7 @@ function NoScheduleBlock(props: { tasks: m.Task[] }) {
           return <NoScheduleTask key={task.key()} task={task}></NoScheduleTask>;
         })}
       </div>
-      <TasksByProject tasks={no_date}></TasksByProject>
+      <TasksByGroup tasks={no_date} groupby={props.groupby}></TasksByGroup>
     </div>
   );
 }
@@ -260,6 +302,16 @@ function App() {
   let [gtdTasks, setTasks] = useState<m.Tasks>(m.Tasks.empty());
   let [ranges, setRanges] = useState<Range[]>([]);
   let [visibleDate, setVisibleDate] = useState<Date | undefined>(getToday());
+  let [groupBy, setGroupBy] = useState<TaskGroupBy>("Project");
+
+  function flipGroupBy() {
+    function flip() {
+      if (groupBy == "Project")
+        return "Tags"
+      return "Project"
+    }
+    setGroupBy(flip())
+  }
 
   async function loadTasks() {
     const networkTasks = await getTasks();
@@ -376,15 +428,21 @@ function App() {
             <button onClick={() => dispatch(unsetContext())}>Clear</button>
             <span>{contextFilter}</span>
           </div>
-          <NoScheduleBlock tasks={wip}></NoScheduleBlock>
+          <div>
+            <button onClick={flipGroupBy}>GroupBy</button>
+            <span>{groupBy}</span>
+          </div>
+          <NoScheduleBlock tasks={wip} groupby={groupBy}></NoScheduleBlock>
           <WeekBlocks week_blocks={week_blocks}></WeekBlocks>
           <h2>Todo</h2>
           <NoScheduleBlock
             tasks={m.Tasks.tasksBy_Status(todoSplit.has_status)}
+            groupby={groupBy}
           ></NoScheduleBlock>
           <h2>Backlog</h2>
           <NoScheduleBlock
             tasks={m.Tasks.tasksBy_Status(noStatusSplit.has_status)}
+            groupby={groupBy}
           ></NoScheduleBlock>
         </div>
         <div style={{ minWidth: "30px" }}>
