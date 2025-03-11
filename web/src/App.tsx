@@ -118,6 +118,19 @@ function ContextBlock(props: { context: string; tasks: m.Task[] }) {
               >
                 {task.cleanDescription()}
               </div>
+              {task.cleanContexts().map((c) => {
+                return (
+                  c == props.context ? (null) : (
+                    <span
+                      className="ContextsExtra"
+                      key={c}
+                      onClick={() => dispatch(setContext(c))}
+                    >
+                      {c + " "}
+                    </span>
+                  )
+                );
+              })}
             </div>
           );
         })}
@@ -133,7 +146,7 @@ function TasksByGroup(props: { tasks: m.Task[], groupby: TaskGroupBy }) {
 }
 
 function TasksByTag(props: { tasks: m.Task[] }) {
-  const groups = _.groupBy((t: m.Task) => t.singleContext())(props.tasks.flatMap(t => t.explodeByContext()));
+  const groups = _.groupBy((t: m.Task) => t.data.single_context)(props.tasks.flatMap(t => t.explodeByContext()));
   return (
     <div>
       {Object.entries(groups).map((entry) => {

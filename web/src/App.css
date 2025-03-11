@@ -48,6 +48,10 @@ h2 {
   font-weight: bold;
 }
 
+.ContextsExtra {
+  color: var(--info);
+}
+
 .DayBlock {
   /* margin: 5px 5px; */
   padding-top: 5px;

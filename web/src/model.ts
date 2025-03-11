@@ -35,6 +35,7 @@ export namespace Data {
     project: Project;
     status: TaskStatus;
     contexts: Context[];
+    single_context?: Context;
     dates: TaskDates | undefined;
   };
 }
@@ -349,7 +350,7 @@ export class Task {
       this.data.contexts.length === 0 ? ["none"] : this.data.contexts
     ).map((c) => {
       let clone = this.clone();
-      clone.data.contexts = [c];
+      clone.data.single_context = c.replace("#x", "");
       return clone;
     });
   }
