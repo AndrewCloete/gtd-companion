@@ -1,4 +1,8 @@
 # gtd-web
 Web interface for [gtd-cli](https://github.com/AndrewCloete/gtd-cli)
 
-More detail with pictures to follow soon
+```sh
+npm run build
+cd build
+npx serve -l 3030
+```
