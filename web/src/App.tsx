@@ -26,7 +26,8 @@ function getTodayStr(): string {
 }
 
 async function getTasks(): Promise<m.Tasks> {
-  const url = `${env.scheme}://${env.host}`;
+  const url = `${env.scheme}://${window.location.hostname}:${env.backend_port}`;
+    console.log(url)
   const requestOptionsFetch = {
     method: "GET",
     headers: {
@@ -332,7 +333,7 @@ function App() {
   }
 
   function connect() {
-    const WS_URL = `${env.ws_scheme}://${env.host}/ws`;
+    const WS_URL = `${env.ws_scheme}://${window.location.hostname}:${env.backend_port}/ws`;
     const ws = new WebSocket(WS_URL);
     ws.addEventListener("open", (event) => {
       ws.send("Connection established");
