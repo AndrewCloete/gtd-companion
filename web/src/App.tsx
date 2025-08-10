@@ -6,12 +6,14 @@ import {
   unsetProject,
   setContext,
   unsetContext,
+  star
 } from "./redux/projectFilter";
 import { useAppSelector, useAppDispatch } from "./hooks";
 
 import { useEffect, useState, useCallback } from "react";
 
 import env from "./.env.prod.json";
+// import env from "./.env.json";
 import * as m from "./model";
 import * as vm from "./viewmodel";
 import { json } from "stream/consumers";
@@ -71,6 +73,7 @@ function ProjectBlock(props: { project: string; tasks: m.Task[] }) {
                 id={task.cleanDescription()}
                 key={task.key()}
                 className={`Description TaskType_${task.classify()}`}
+                onClick={() => dispatch(star(task.cleanDescription()))}
               >
                 {task.cleanDescription()}
               </div>
@@ -116,6 +119,7 @@ function ContextBlock(props: { context: string; tasks: m.Task[] }) {
                 id={task.cleanDescription()}
                 key={task.key()}
                 className={`Description TaskType_${task.classify()}`}
+                onClick={() => dispatch(star(task.cleanDescription()))}
               >
                 {task.cleanDescription()}
               </div>
@@ -253,6 +257,7 @@ function NoScheduleBlock(props: { tasks: m.Task[], groupby: TaskGroupBy }) {
         </div>
         <div
           className={`Description Status_${props.task.data.status} TaskType_${props.task.classify()}`}
+          onClick={() => dispatch(star(props.task.cleanDescription()))}
         >
           {props.task.cleanDescription()}
         </div>
@@ -318,6 +323,7 @@ function App() {
   let [visibleDate, setVisibleDate] = useState<Date | undefined>(getToday());
   let [groupBy, setGroupBy] = useState<TaskGroupBy>("Project");
 
+
   function flipGroupBy() {
     function flip() {
       if (groupBy == "Project")
@@ -368,6 +374,7 @@ function App() {
 
   const projectFilter = useAppSelector((state) => state.taskFilter.project);
   const contextFilter = useAppSelector((state) => state.taskFilter.context);
+  const starredDesc = useAppSelector((state) => state.taskFilter.starredDesc);
 
   useEffect(() => {
     function vertical_range(range_key: string): Range | undefined {
@@ -414,11 +421,12 @@ function App() {
     };
   }, [handleKeyPress]);
 
-  const { tasks, wip, non_wip, has_date, no_date } = m.Tasks.subdivide(
+  const { tasks, starred, wip, non_wip, has_date, no_date } = m.Tasks.subdivide(
     gtdTasks
       .filter_by_project(projectFilter)
       .filter_by_context(contextFilter)
       .filter_by_visibility(visibleDate).tasks,
+    starredDesc
   );
   const todoSplit = m.Tasks.statusSplit(["Todo"], no_date);
   const noStatusSplit = m.Tasks.statusSplit(
@@ -446,9 +454,10 @@ function App() {
             <button onClick={flipGroupBy}>GroupBy</button>
             <span>{groupBy}</span>
           </div>
+          <NoScheduleBlock tasks={starred} groupby={groupBy}></NoScheduleBlock>
+          <h2>WIP</h2>
           <NoScheduleBlock tasks={wip} groupby={groupBy}></NoScheduleBlock>
           <WeekBlocks week_blocks={week_blocks}></WeekBlocks>
-          <h2>Todo</h2>
           <NoScheduleBlock
             tasks={m.Tasks.tasksBy_Status(todoSplit.has_status)}
             groupby={groupBy}
