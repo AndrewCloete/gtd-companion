@@ -61,7 +61,9 @@ fn add_starred(tasks: HashMap<String, Task>, starred_descriptions: Vec<String>) 
             new_tasks.insert(desc, task.clone());
         }
     }
-    new_tasks.values().cloned().collect()
+    let mut sorted_tasks: Vec<Task> = new_tasks.values().cloned().collect();
+    sorted_tasks.sort_by(|a, b| a.description.cmp(&b.description));
+    sorted_tasks
 }
 
 async fn get_tasks(State(state): State<SharedState>) -> Result<impl IntoResponse, StatusCode> {

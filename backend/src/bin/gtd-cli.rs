@@ -141,10 +141,11 @@ fn flat_tasks(projects: &Vec<Project>) -> Vec<Task> {
 }
 
 fn flat_tasks_dict(projects: &Vec<Project>) -> HashMap<String, Task> {
-    projects
+    let tasks = &mut flat_tasks(projects);
+    tasks.sort_by(|a, b| a.description.cmp(&b.description));
+    tasks
         .iter()
-        .flat_map(|p| p.tasks.iter().flat_map(|t| t.1.clone()))
-        .map(|t| (t.description.clone(), t))
+        .map(|t| (t.description.clone(), t.clone()))
         .collect()
 }
 
