@@ -4,6 +4,7 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
     routing::get,
+    routing::post,
     Json, Router,
 };
 use tokio::sync::watch::{self, Sender};
@@ -31,6 +32,22 @@ async fn set_tasks(
     state.write().unwrap().tasks = input;
     state.read().unwrap().tx.send("update".to_string()).unwrap();
     tracing::info!("set_tasks");
+    Ok(())
+}
+
+async fn star_task(
+    State(state): State<SharedState>,
+    input: String,
+) -> Result<impl IntoResponse, StatusCode> {
+    let s = &mut state.write().unwrap();
+    let tasks = &mut s.tasks;
+    for task in tasks.iter_mut() {
+        if task.description.contains(&input) {
+            task.starred = !task.starred
+        }
+    }
+    s.tx.send("update".to_string()).unwrap();
+    tracing::info!("star_task");
     Ok(())
 }
 
@@ -75,6 +92,7 @@ async fn main() {
     let app = Router::new()
         .route("/", get(index))
         .route("/tasks", get(get_tasks).post(set_tasks))
+        .route("/star", post(star_task))
         .route("/ws", get(ws_handler))
         .layer(CorsLayer::permissive())
         .with_state(Arc::clone(&shared_state));
