@@ -29,13 +29,13 @@ function get_url() {
   return `${env.scheme}://${window.location.hostname}:${env.backend_port}`;
 }
 
-async function star_task(description: string): Promise<undefined> {
+async function star_task(task: m.Task): Promise<undefined> {
   const requestOptionsFetch = {
     method: "POST",
     headers: {
       Authorization: "Basic " + btoa(env.user + ":" + env.psw),
     },
-    body: description
+    body: task.data.description
   };
   //@ts-ignore
   return await fetch(get_url() + "/star", requestOptionsFetch);
@@ -85,7 +85,7 @@ function ProjectBlock(props: { project: string; tasks: m.Task[] }) {
                 id={task.cleanDescription()}
                 key={task.key()}
                 className={`Description TaskType_${task.classify()}`}
-                onClick={() => star_task(task.cleanDescription())}
+                onClick={() => star_task(task)}
               >
                 {task.cleanDescription()}
               </div>
@@ -131,7 +131,7 @@ function ContextBlock(props: { context: string; tasks: m.Task[] }) {
                 id={task.cleanDescription()}
                 key={task.key()}
                 className={`Description TaskType_${task.classify()}`}
-                onClick={() => star_task(task.cleanDescription())}
+                onClick={() => star_task(task)}
               >
                 {task.cleanDescription()}
               </div>
@@ -269,7 +269,7 @@ function NoScheduleBlock(props: { tasks: m.Task[], groupby: TaskGroupBy }) {
         </div>
         <div
           className={`Description Status_${props.task.data.status} TaskType_${props.task.classify()}`}
-          onClick={() => star_task(props.task.cleanDescription())}
+          onClick={() => star_task(props.task)}
         >
           {props.task.cleanDescription()}
         </div>
