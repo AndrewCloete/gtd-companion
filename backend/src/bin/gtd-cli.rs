@@ -140,6 +140,14 @@ fn flat_tasks(projects: &Vec<Project>) -> Vec<Task> {
         .collect()
 }
 
+fn flat_tasks_dict(projects: &Vec<Project>) -> HashMap<String, Task> {
+    projects
+        .iter()
+        .flat_map(|p| p.tasks.iter().flat_map(|t| t.1.clone()))
+        .map(|t| (t.description.clone(), t))
+        .collect()
+}
+
 fn print_by_context(projects: &Vec<Project>) {
     for (context, flat_tasks) in pivot_on_context(projects) {
         let ctx_line = format!("-- {} --", context);
@@ -288,7 +296,8 @@ fn main() {
         //display_projects(&projects);
     }
     if args.web.unwrap_or(true) && config.server.is_some() {
-        let tasks_string = serde_json::to_string_pretty(&flat_tasks(&projects)).unwrap();
+        let tasks_string = serde_json::to_string(&flat_tasks_dict(&projects)).unwrap();
+        println!("{:?}", tasks_string);
         let server_cnf = config.server.unwrap().clone();
         let url = server_cnf.host.clone() + "/tasks";
         let client = reqwest::blocking::Client::new();

@@ -11,6 +11,7 @@ use tokio::sync::watch::{self, Sender};
 
 use tower_http::cors::CorsLayer;
 
+use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use gtd_cli::model::Task;
@@ -20,14 +21,10 @@ use tracing_subscriber::FmtSubscriber;
 async fn index() -> String {
     String::from("homepage")
 }
-async fn get_tasks(State(state): State<SharedState>) -> Result<impl IntoResponse, StatusCode> {
-    tracing::info!("get_tasks");
-    Ok(Json(state.read().unwrap().tasks.clone()))
-}
 
 async fn set_tasks(
     State(state): State<SharedState>,
-    Json(input): Json<Vec<Task>>,
+    Json(input): Json<HashMap<String, Task>>,
 ) -> Result<impl IntoResponse, StatusCode> {
     state.write().unwrap().tasks = input;
     state.read().unwrap().tx.send("update".to_string()).unwrap();
@@ -40,21 +37,45 @@ async fn star_task(
     input: String,
 ) -> Result<impl IntoResponse, StatusCode> {
     let s = &mut state.write().unwrap();
-    let tasks = &mut s.tasks;
-    for task in tasks.iter_mut() {
-        if task.description.contains(&input) {
-            task.starred = !task.starred
-        }
-    }
+    if s.starred_descriptions.contains(&input) {
+        s.starred_descriptions = s
+            .starred_descriptions
+            .clone()
+            .into_iter()
+            .filter(|s| s != &input)
+            .collect()
+    } else {
+        s.starred_descriptions.push(input);
+    };
     s.tx.send("update".to_string()).unwrap();
     tracing::info!("star_task");
     Ok(())
 }
 
+fn add_starred(tasks: HashMap<String, Task>, starred_descriptions: Vec<String>) -> Vec<Task> {
+    let new_tasks = &mut tasks.clone();
+    for desc in starred_descriptions {
+        if new_tasks.contains_key(&desc) {
+            let task = &mut new_tasks.get_mut(&desc).unwrap().clone();
+            task.starred = !task.starred;
+            new_tasks.insert(desc, task.clone());
+        }
+    }
+    new_tasks.values().cloned().collect()
+}
+
+async fn get_tasks(State(state): State<SharedState>) -> Result<impl IntoResponse, StatusCode> {
+    tracing::info!("get_tasks");
+    let s = state.read().unwrap();
+    let tasks = add_starred(s.tasks.clone(), s.starred_descriptions.clone());
+    Ok(Json(tasks.clone()))
+}
+
 type SharedState = Arc<RwLock<AppState>>;
 
 struct AppState {
-    tasks: Vec<Task>,
+    tasks: HashMap<String, Task>,
+    starred_descriptions: Vec<String>,
     tx: Sender<String>,
 }
 
@@ -68,7 +89,11 @@ async fn main() {
 
     let (tx, mut rx) = watch::channel("hello".to_string());
 
-    let shared_state = Arc::new(RwLock::new(AppState { tasks: vec![], tx }));
+    let shared_state = Arc::new(RwLock::new(AppState {
+        tasks: HashMap::new(),
+        starred_descriptions: vec![],
+        tx,
+    }));
 
     let handle_socket = |mut socket: WebSocket| async move {
         loop {
