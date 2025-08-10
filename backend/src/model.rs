@@ -128,7 +128,7 @@ struct TaskContext(String);
 
 impl TaskContext {
     fn re_context() -> Regex {
-        Regex::new(r"(#x[A-Za-z0-9]{1,})+").unwrap()
+        Regex::new(r"(#x[A-Za-z0-9_]{1,})+").unwrap()
     }
 
     pub fn extract_contexts(task: &str) -> Vec<String> {
