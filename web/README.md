@@ -1,8 +1,7 @@
 # gtd-web
 Web interface for [gtd-cli](https://github.com/AndrewCloete/gtd-cli)
 
+To deploy run
 ```sh
-npm run build
-cd build
-npx serve -l 3030
+./redeploy.sh
 ```
