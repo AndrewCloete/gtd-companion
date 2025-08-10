@@ -37,6 +37,7 @@ export namespace Data {
     contexts: Context[];
     single_context?: Context;
     dates: TaskDates | undefined;
+    starred: boolean;
   };
 }
 
@@ -487,10 +488,7 @@ export class Tasks {
     return { has_date, no_date };
   }
 
-  static subdivide(
-    tasks: Task[],
-    starred_desc: string[]
-  ): {
+  static subdivide(tasks: Task[]): {
     tasks: Task[];
     starred: Task[];
     wip: Task[];
@@ -500,7 +498,7 @@ export class Tasks {
   } {
     const [starred, non_starred] = tasks.reduce<[Task[], Task[]]>(
       ([pass, fail], task) => {
-        if (starred_desc.includes(task.cleanDescription())) {
+        if (task.data.starred) {
           pass.push(task);
         } else {
           fail.push(task);
@@ -595,6 +593,7 @@ export class Tasks {
             start: TaskDate.toYYYYMMDD(sunday),
             due: TaskDate.toYYYYMMDD(sunday),
           },
+          starred: false,
         });
       }
     );

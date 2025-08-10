@@ -7,14 +7,12 @@ import { unapply } from "lodash/fp";
 interface FilterState {
   project: string | undefined;
   context: string | undefined;
-  starredDesc: string[];
 }
 
 // Define the initial state using that type
 const initialState: FilterState = {
   project: undefined,
   context: undefined,
-  starredDesc: [],
 };
 
 export const filterSlice = createSlice({
@@ -41,20 +39,11 @@ export const filterSlice = createSlice({
     unsetContext: (state) => {
       state.context = undefined;
     },
-    star: (state, action: PayloadAction<string>) => {
-      if (state.starredDesc.includes(action.payload)) {
-        state.starredDesc = state.starredDesc.filter(
-          (s) => s != action.payload
-        );
-      } else {
-        state.starredDesc = [...state.starredDesc, action.payload];
-      }
-    },
   },
 });
 
 // Action creators are generated for each case reducer function
-export const { setProject, unsetProject, setContext, unsetContext, star } =
+export const { setProject, unsetProject, setContext, unsetContext } =
   filterSlice.actions;
 
 export default filterSlice.reducer;

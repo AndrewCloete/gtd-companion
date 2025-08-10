@@ -6,7 +6,6 @@ import {
   unsetProject,
   setContext,
   unsetContext,
-  star
 } from "./redux/projectFilter";
 import { useAppSelector, useAppDispatch } from "./hooks";
 
@@ -16,7 +15,6 @@ import env from "./.env.prod.json";
 // import env from "./.env.json";
 import * as m from "./model";
 import * as vm from "./viewmodel";
-import { json } from "stream/consumers";
 
 type TaskGroupBy = "Project" | "Tags"
 
@@ -27,9 +25,23 @@ function getTodayStr(): string {
   return m.TaskDate.toYYYYMMDD(getToday());
 }
 
+function get_url() {
+  return `${env.scheme}://${window.location.hostname}:${env.backend_port}`;
+}
+
+async function star_task(description: string): Promise<undefined> {
+  const requestOptionsFetch = {
+    method: "POST",
+    headers: {
+      Authorization: "Basic " + btoa(env.user + ":" + env.psw),
+    },
+    body: description
+  };
+  //@ts-ignore
+  return await fetch(get_url() + "/star", requestOptionsFetch);
+}
+
 async function getTasks(): Promise<m.Tasks> {
-  const url = `${env.scheme}://${window.location.hostname}:${env.backend_port}`;
-    console.log(url)
   const requestOptionsFetch = {
     method: "GET",
     headers: {
@@ -37,7 +49,7 @@ async function getTasks(): Promise<m.Tasks> {
     },
   };
   //@ts-ignore
-  const response = await fetch(url + "/tasks", requestOptionsFetch);
+  const response = await fetch(get_url() + "/tasks", requestOptionsFetch);
   const tasks_data = (await response.json()) as m.Data.Task[];
   return m.Tasks.fromData(tasks_data);
 }
@@ -73,7 +85,7 @@ function ProjectBlock(props: { project: string; tasks: m.Task[] }) {
                 id={task.cleanDescription()}
                 key={task.key()}
                 className={`Description TaskType_${task.classify()}`}
-                onClick={() => dispatch(star(task.cleanDescription()))}
+                onClick={() => star_task(task.cleanDescription())}
               >
                 {task.cleanDescription()}
               </div>
@@ -119,7 +131,7 @@ function ContextBlock(props: { context: string; tasks: m.Task[] }) {
                 id={task.cleanDescription()}
                 key={task.key()}
                 className={`Description TaskType_${task.classify()}`}
-                onClick={() => dispatch(star(task.cleanDescription()))}
+                onClick={() => star_task(task.cleanDescription())}
               >
                 {task.cleanDescription()}
               </div>
@@ -257,7 +269,7 @@ function NoScheduleBlock(props: { tasks: m.Task[], groupby: TaskGroupBy }) {
         </div>
         <div
           className={`Description Status_${props.task.data.status} TaskType_${props.task.classify()}`}
-          onClick={() => dispatch(star(props.task.cleanDescription()))}
+          onClick={() => star_task(props.task.cleanDescription())}
         >
           {props.task.cleanDescription()}
         </div>
@@ -374,7 +386,6 @@ function App() {
 
   const projectFilter = useAppSelector((state) => state.taskFilter.project);
   const contextFilter = useAppSelector((state) => state.taskFilter.context);
-  const starredDesc = useAppSelector((state) => state.taskFilter.starredDesc);
 
   useEffect(() => {
     function vertical_range(range_key: string): Range | undefined {
@@ -425,8 +436,7 @@ function App() {
     gtdTasks
       .filter_by_project(projectFilter)
       .filter_by_context(contextFilter)
-      .filter_by_visibility(visibleDate).tasks,
-    starredDesc
+      .filter_by_visibility(visibleDate).tasks
   );
   const todoSplit = m.Tasks.statusSplit(["Todo"], no_date);
   const noStatusSplit = m.Tasks.statusSplit(
