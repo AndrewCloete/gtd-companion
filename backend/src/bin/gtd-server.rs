@@ -62,7 +62,7 @@ fn add_starred(tasks: HashMap<String, Task>, starred_descriptions: Vec<String>) 
         }
     }
     let mut sorted_tasks: Vec<Task> = new_tasks.values().cloned().collect();
-    sorted_tasks.sort_by(|a, b| a.description.cmp(&b.description));
+    sorted_tasks.sort_by(|a, b| a.project.cmp(&b.project));
     sorted_tasks
 }
 
