@@ -384,6 +384,14 @@ function App() {
     return;
   }, []);
 
+  // Sets the date back to today every 1 minute to ensure invisible tasks are always surfaced
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setVisibleDate(getToday())
+    }, 60000);
+    return () => clearInterval(intervalId);
+  }, []);
+
   const projectFilter = useAppSelector((state) => state.taskFilter.project);
   const contextFilter = useAppSelector((state) => state.taskFilter.context);
 
@@ -443,6 +451,8 @@ function App() {
     ["NoStatus"],
     todoSplit.other_status,
   );
+
+
 
   const withMeta = m.Tasks.addMetaTasks(has_date);
   const week_blocks = vm.WeekBlock.fromTasks(withMeta);
