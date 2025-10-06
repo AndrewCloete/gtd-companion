@@ -217,7 +217,7 @@ pub struct Task {
 impl Task {
     pub fn re_any() -> Regex {
         // TODO: regex duplicated here.. not very DRY
-        Regex::new(r"(#x[A-Za-z0-9]{1,})|(@[d,s,b][0-9]{8})|@todo|@wip|@review").unwrap()
+        Regex::new(r"(#x[A-Za-z0-9]{1,})|(@[d,s,b,v][0-9]{8})|@todo|@wip|@review").unwrap()
     }
 
     pub fn from(task: &str, project: &str) -> Task {

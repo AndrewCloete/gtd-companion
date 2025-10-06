@@ -1,10 +1,14 @@
 use clap::Parser;
 use colored::*;
 use gtd_cli::model::{ConfigFile, Project, Task, TaskDates, TaskStatus};
+use regex::Regex;
 use reqwest;
 use std::collections::HashMap;
 use std::fs;
+use std::sync::LazyLock;
 use walkdir::{DirEntry, WalkDir};
+
+static LIST_ITEM_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*(\*|-)\s+").unwrap());
 
 /// Turns a text-based knowledge base into a GTD system
 #[derive(Parser, Debug)]
@@ -198,7 +202,7 @@ fn main() {
             let task_lines = file_content
                 .lines()
                 .map(|line| String::from(line))
-                .filter(|line| line.starts_with("- ") || line.starts_with("* "));
+                .filter(|line| LIST_ITEM_RE.is_match(line));
 
             let first_line = task_lines.clone().next().unwrap_or("".into());
             let gtd_task = if first_line.starts_with("- @gtd") {
