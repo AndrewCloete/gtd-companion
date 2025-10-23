@@ -57,11 +57,13 @@ pub enum TaskStatus {
     Todo,
     Wip,
     Review,
+    Week,
+    Month,
 }
 
 impl TaskStatus {
     fn re_status() -> Regex {
-        Regex::new(r"(@todo|@wip|@review)").unwrap()
+        Regex::new(r"(@todo|@wip|@review|@week|@month)").unwrap()
     }
     pub fn remove_status_str(task: &str) -> String {
         let no_status = TaskStatus::re_status().replace_all(task, "").to_string();
@@ -85,6 +87,8 @@ impl TaskStatus {
             TaskStatus::Review,
             TaskStatus::Todo,
             TaskStatus::NoStatus,
+            TaskStatus::Week,
+            TaskStatus::Month,
         ];
     }
 
@@ -93,6 +97,8 @@ impl TaskStatus {
             TaskStatus::NoStatus => self.to_string().black(),
             TaskStatus::Todo => self.to_string().green(),
             TaskStatus::Wip => self.to_string().red(),
+            TaskStatus::Week => self.to_string().red(),
+            TaskStatus::Month => self.to_string().red(),
             TaskStatus::Review => self.to_string().yellow(),
         }
     }
@@ -105,6 +111,8 @@ impl std::fmt::Display for TaskStatus {
             Self::Wip => "@wip",
             Self::Review => "@review",
             Self::NoStatus => "@noStatus",
+            Self::Week => "@week",
+            Self::Month => "@month",
         };
         s.fmt(f)
     }
@@ -118,6 +126,8 @@ impl std::str::FromStr for TaskStatus {
             "@wip" => Ok(Self::Wip),
             "@review" => Ok(Self::Review),
             "@noStatus" => Ok(Self::NoStatus),
+            "@week" => Ok(Self::Week),
+            "@month" => Ok(Self::Month),
             _ => Err(format!("Unknown status: {s}")),
         }
     }
@@ -217,7 +227,8 @@ pub struct Task {
 impl Task {
     pub fn re_any() -> Regex {
         // TODO: regex duplicated here.. not very DRY
-        Regex::new(r"(#x[A-Za-z0-9]{1,})|(@[d,s,b,v][0-9]{8})|@todo|@wip|@review").unwrap()
+        Regex::new(r"(#x[A-Za-z0-9]{1,})|(@[d,s,b,v][0-9]{8})|@todo|@wip|@review|@week|@month")
+            .unwrap()
     }
 
     pub fn from(task: &str, project: &str) -> Task {
