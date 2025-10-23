@@ -11,8 +11,7 @@ import { useAppSelector, useAppDispatch } from "./hooks";
 
 import { useEffect, useState, useCallback } from "react";
 
-import env from "./.env.prod.json";
-// import env from "./.env.json";
+import env from "./.env.json";
 import * as m from "./model";
 import * as vm from "./viewmodel";
 
@@ -440,7 +439,7 @@ function App() {
     };
   }, [handleKeyPress]);
 
-  const { tasks, starred, wip, non_wip, has_date, no_date } = m.Tasks.subdivide(
+  const { tasks, starred, wip, week, month, non_wip, has_date, no_date } = m.Tasks.subdivide(
     gtdTasks
       .filter_by_project(projectFilter)
       .filter_by_context(contextFilter)
@@ -477,6 +476,10 @@ function App() {
           <NoScheduleBlock tasks={starred} groupby={groupBy}></NoScheduleBlock>
           <h2>WIP</h2>
           <NoScheduleBlock tasks={wip} groupby={groupBy}></NoScheduleBlock>
+          <h2>Weekly</h2>
+          <NoScheduleBlock tasks={week} groupby={groupBy}></NoScheduleBlock>
+          <h2>Monthly</h2>
+          <NoScheduleBlock tasks={month} groupby={groupBy}></NoScheduleBlock>
           <WeekBlocks week_blocks={week_blocks}></WeekBlocks>
           <NoScheduleBlock
             tasks={m.Tasks.tasksBy_Status(todoSplit.has_status)}

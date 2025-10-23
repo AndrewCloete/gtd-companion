@@ -10,16 +10,20 @@ export namespace Data {
     "Review",
     "Sunday",
     "Today",
+    "Week",
+    "Month",
   ] as const;
   export type TaskStatus = (typeof statuses)[number];
 
   export const statusRank: Record<TaskStatus, Number> = {
     Wip: 1,
-    Review: 2,
-    Todo: 3,
-    NoStatus: 4,
-    Sunday: 5,
-    Today: 6,
+    Week: 2,
+    Month: 3,
+    Review: 4,
+    Todo: 5,
+    NoStatus: 6,
+    Sunday: 7,
+    Today: 8,
   };
   export type Project = string;
   export type Context = string;
@@ -492,6 +496,8 @@ export class Tasks {
     tasks: Task[];
     starred: Task[];
     wip: Task[];
+    week: Task[];
+    month: Task[];
     non_wip: Task[];
     has_date: Task[];
     no_date: Task[];
@@ -507,7 +513,7 @@ export class Tasks {
       },
       [[], []]
     );
-    const [wip, non_wip] = non_starred.reduce<[Task[], Task[]]>(
+    const [wip, non_wip1] = non_starred.reduce<[Task[], Task[]]>(
       ([pass, fail], task) => {
         if (task.data.status === "Wip" || task.data.status === "Review") {
           pass.push(task);
@@ -519,9 +525,33 @@ export class Tasks {
       [[], []]
     );
 
+    const [week, non_wip2] = non_wip1.reduce<[Task[], Task[]]>(
+      ([pass, fail], task) => {
+        if (task.data.status === "Week") {
+          pass.push(task);
+        } else {
+          fail.push(task);
+        }
+        return [pass, fail];
+      },
+      [[], []]
+    );
+
+    const [month, non_wip] = non_wip2.reduce<[Task[], Task[]]>(
+      ([pass, fail], task) => {
+        if (task.data.status === "Month") {
+          pass.push(task);
+        } else {
+          fail.push(task);
+        }
+        return [pass, fail];
+      },
+      [[], []]
+    );
+
     const { has_date, no_date } = Tasks.dateSplit(non_starred);
 
-    return { tasks, starred, wip, non_wip, has_date, no_date };
+    return { tasks, starred, wip, week, month, non_wip, has_date, no_date };
   }
 
   static tasksBy_PriorityDate(tasks: Task[]): Task[] {
