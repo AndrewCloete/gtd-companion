@@ -14,9 +14,9 @@ RUN mkdir -p src/bin && \
     rm -rf src
 
 COPY src ./src
-# The cache layer above built `gtd-cli` with an empty `model.rs`; Cargo can keep
-# that rlib unless we rebuild the package. `clean -p` forces a real `model` module.
-RUN cargo clean -p gtd-cli && \
+# Stub layer used `cargo build --release`, so the bad rlib lives under target/release.
+# `cargo clean -p` without `--release` only cleans debug artifacts ("Removed 0 files").
+RUN cargo clean -p gtd-cli --release && \
     cargo build --release --bin gtd-server
 
 # ── Runtime ───────────────────────────────────────────────────────────────────
