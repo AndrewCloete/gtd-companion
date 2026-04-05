@@ -14,7 +14,9 @@ RUN mkdir -p src/bin && \
     rm -rf src
 
 COPY src ./src
-RUN touch src/bin/gtd-server.rs && \
+# The cache layer above built `gtd-cli` with an empty `model.rs`; Cargo can keep
+# that rlib unless we rebuild the package. `clean -p` forces a real `model` module.
+RUN cargo clean -p gtd-cli && \
     cargo build --release --bin gtd-server
 
 # ── Runtime ───────────────────────────────────────────────────────────────────
