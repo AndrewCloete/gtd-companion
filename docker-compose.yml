@@ -1,0 +1,22 @@
+services:
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    ports:
+      - "10084:10084"
+
+  web:
+    build:
+      context: ./web
+      args:
+        GTD_SCHEME: ${GTD_SCHEME:-http}
+        GTD_WS_SCHEME: ${GTD_WS_SCHEME:-ws}
+        GTD_BACKEND_PORT: ${GTD_BACKEND_PORT:-10084}
+        GTD_USER: ${GTD_USER}
+        GTD_PSW: ${GTD_PSW}
+        GTD_EDITOR_SCHEME: ${GTD_EDITOR_SCHEME:-vscode}
+    restart: unless-stopped
+    ports:
+      - "3000:3030"
+    depends_on:
+      - backend

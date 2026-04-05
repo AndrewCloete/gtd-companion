@@ -47,3 +47,24 @@ dev:
     @echo "  just server   # start the backend"
     @echo "  just web      # start the web dev server"
     @echo "  just scan     # push tasks (re-run whenever knowledge base changes)"
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+
+# Build all Docker images
+docker-build:
+    docker compose build
+
+# Start all services (detached)
+docker-up:
+    docker compose up -d
+
+# Stop all services
+docker-down:
+    docker compose down
+
+# Tail logs from all services
+docker-logs:
+    docker compose logs -f
+
+# Rebuild and restart everything
+docker-deploy: docker-build docker-up
