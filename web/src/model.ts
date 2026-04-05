@@ -41,7 +41,6 @@ export namespace Data {
     contexts: Context[];
     single_context?: Context;
     dates: TaskDates | undefined;
-    starred: boolean;
     file_path?: string;
     line?: number;
   };
@@ -496,7 +495,6 @@ export class Tasks {
 
   static subdivide(tasks: Task[]): {
     tasks: Task[];
-    starred: Task[];
     wip: Task[];
     week: Task[];
     month: Task[];
@@ -504,18 +502,7 @@ export class Tasks {
     has_date: Task[];
     no_date: Task[];
   } {
-    const [starred, non_starred] = tasks.reduce<[Task[], Task[]]>(
-      ([pass, fail], task) => {
-        if (task.data.starred) {
-          pass.push(task);
-        } else {
-          fail.push(task);
-        }
-        return [pass, fail];
-      },
-      [[], []]
-    );
-    const [wip, non_wip1] = non_starred.reduce<[Task[], Task[]]>(
+    const [wip, non_wip1] = tasks.reduce<[Task[], Task[]]>(
       ([pass, fail], task) => {
         if (task.data.status === "Wip" || task.data.status === "Review") {
           pass.push(task);
@@ -551,9 +538,9 @@ export class Tasks {
       [[], []]
     );
 
-    const { has_date, no_date } = Tasks.dateSplit(non_starred);
+    const { has_date, no_date } = Tasks.dateSplit(tasks);
 
-    return { tasks, starred, wip, week, month, non_wip, has_date, no_date };
+    return { tasks, wip, week, month, non_wip, has_date, no_date };
   }
 
   static tasksBy_PriorityDate(tasks: Task[]): Task[] {

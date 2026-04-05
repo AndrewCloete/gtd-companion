@@ -4,7 +4,6 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
     routing::get,
-    routing::post,
     Json, Router,
 };
 use tokio::sync::watch::{self, Sender};
@@ -32,52 +31,18 @@ async fn set_tasks(
     Ok(())
 }
 
-async fn star_task(
-    State(state): State<SharedState>,
-    input: String,
-) -> Result<impl IntoResponse, StatusCode> {
-    let s = &mut state.write().unwrap();
-    if s.starred_descriptions.contains(&input) {
-        s.starred_descriptions = s
-            .starred_descriptions
-            .clone()
-            .into_iter()
-            .filter(|s| s != &input)
-            .collect()
-    } else {
-        s.starred_descriptions.push(input);
-    };
-    s.tx.send("update".to_string()).unwrap();
-    tracing::info!("star_task");
-    Ok(())
-}
-
-fn add_starred(tasks: HashMap<String, Task>, starred_descriptions: Vec<String>) -> Vec<Task> {
-    let new_tasks = &mut tasks.clone();
-    for desc in starred_descriptions {
-        if new_tasks.contains_key(&desc) {
-            let task = &mut new_tasks.get_mut(&desc).unwrap().clone();
-            task.starred = !task.starred;
-            new_tasks.insert(desc, task.clone());
-        }
-    }
-    let mut sorted_tasks: Vec<Task> = new_tasks.values().cloned().collect();
-    sorted_tasks.sort_by(|a, b| a.project.cmp(&b.project));
-    sorted_tasks
-}
-
 async fn get_tasks(State(state): State<SharedState>) -> Result<impl IntoResponse, StatusCode> {
     tracing::info!("get_tasks");
     let s = state.read().unwrap();
-    let tasks = add_starred(s.tasks.clone(), s.starred_descriptions.clone());
-    Ok(Json(tasks.clone()))
+    let mut tasks: Vec<Task> = s.tasks.values().cloned().collect();
+    tasks.sort_by(|a, b| a.project.cmp(&b.project));
+    Ok(Json(tasks))
 }
 
 type SharedState = Arc<RwLock<AppState>>;
 
 struct AppState {
     tasks: HashMap<String, Task>,
-    starred_descriptions: Vec<String>,
     tx: Sender<String>,
 }
 
@@ -93,7 +58,6 @@ async fn main() {
 
     let shared_state = Arc::new(RwLock::new(AppState {
         tasks: HashMap::new(),
-        starred_descriptions: vec![],
         tx,
     }));
 
@@ -119,7 +83,6 @@ async fn main() {
     let app = Router::new()
         .route("/", get(index))
         .route("/tasks", get(get_tasks).post(set_tasks))
-        .route("/star", post(star_task))
         .route("/ws", get(ws_handler))
         .layer(CorsLayer::permissive())
         .with_state(Arc::clone(&shared_state));

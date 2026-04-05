@@ -28,18 +28,6 @@ function get_url() {
   return `${env.scheme}://${window.location.hostname}:${env.backend_port}`;
 }
 
-async function star_task(task: m.Task): Promise<undefined> {
-  const requestOptionsFetch = {
-    method: "POST",
-    headers: {
-      Authorization: "Basic " + btoa(env.user + ":" + env.psw),
-    },
-    body: task.data.description
-  };
-  //@ts-ignore
-  return await fetch(get_url() + "/star", requestOptionsFetch);
-}
-
 function open_in_editor(task: m.Task) {
   if (!task.data.file_path || !task.data.line) return;
   const scheme = (env as any).editor_scheme ?? "vscode";
@@ -90,7 +78,7 @@ function ProjectBlock(props: { project: string; tasks: m.Task[] }) {
                 id={task.cleanDescription()}
                 key={task.key()}
                 className={`Description TaskType_${task.classify()}`}
-                onClick={(e) => e.metaKey ? open_in_editor(task) : star_task(task)}
+                onClick={(e) => open_in_editor(task)}
               >
                 {task.cleanDescription()}
               </div>
@@ -136,7 +124,7 @@ function ContextBlock(props: { context: string; tasks: m.Task[] }) {
                 id={task.cleanDescription()}
                 key={task.key()}
                 className={`Description TaskType_${task.classify()}`}
-                onClick={(e) => e.metaKey ? open_in_editor(task) : star_task(task)}
+                onClick={(e) => open_in_editor(task)}
               >
                 {task.cleanDescription()}
               </div>
@@ -274,7 +262,7 @@ function NoScheduleBlock(props: { tasks: m.Task[], groupby: TaskGroupBy }) {
         </div>
         <div
           className={`Description Status_${props.task.data.status} TaskType_${props.task.classify()}`}
-          onClick={(e) => e.metaKey ? open_in_editor(props.task) : star_task(props.task)}
+          onClick={() => open_in_editor(props.task)}
         >
           {props.task.cleanDescription()}
         </div>
@@ -445,7 +433,7 @@ function App() {
     };
   }, [handleKeyPress]);
 
-  const { tasks, starred, wip, week, month, non_wip, has_date, no_date } = m.Tasks.subdivide(
+  const { tasks, wip, week, month, non_wip, has_date, no_date } = m.Tasks.subdivide(
     gtdTasks
       .filter_by_project(projectFilter)
       .filter_by_context(contextFilter)
@@ -479,7 +467,6 @@ function App() {
             <button onClick={flipGroupBy}>GroupBy</button>
             <span>{groupBy}</span>
           </div>
-          <NoScheduleBlock tasks={starred} groupby={groupBy}></NoScheduleBlock>
           <h2>WIP</h2>
           <NoScheduleBlock tasks={wip} groupby={groupBy}></NoScheduleBlock>
           <h2>Weekly</h2>
