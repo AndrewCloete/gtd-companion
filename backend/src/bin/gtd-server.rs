@@ -14,8 +14,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use gtd_cli::model::Task;
-use tracing::Level;
-use tracing_subscriber::FmtSubscriber;
+use tracing_subscriber::EnvFilter;
 
 async fn index() -> String {
     String::from("homepage")
@@ -46,13 +45,26 @@ struct AppState {
     tx: Sender<String>,
 }
 
+fn listen_addr() -> String {
+    let port = std::env::var("PORT")
+        .or_else(|_| std::env::var("GTD_SERVER_PORT"))
+        .unwrap_or_else(|_| "10084".to_string());
+    format!("0.0.0.0:{port}")
+}
+
 #[tokio::main]
 async fn main() {
-    let subscriber = FmtSubscriber::builder()
-        .with_max_level(Level::TRACE)
-        .finish();
+    color_eyre::install().expect("color_eyre::install");
 
-    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+    let filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new("info"));
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_writer(std::io::stderr)
+        .init();
+
+    let addr = listen_addr();
+    eprintln!("gtd-server: starting (bind {addr})");
 
     let (tx, mut rx) = watch::channel("hello".to_string());
 
@@ -87,10 +99,23 @@ async fn main() {
         .layer(CorsLayer::permissive())
         .with_state(Arc::clone(&shared_state));
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:10084")
-        .await
-        .unwrap();
+    let listener = match tokio::net::TcpListener::bind(&addr).await {
+        Ok(l) => l,
+        Err(e) => {
+            eprintln!("gtd-server: ERROR bind {addr} failed: {e}");
+            std::process::exit(1);
+        }
+    };
 
-    tracing::debug!("listening on {}", listener.local_addr().unwrap());
-    axum::serve(listener, app).await.unwrap();
+    let local = listener.local_addr().unwrap_or_else(|e| {
+        eprintln!("gtd-server: ERROR local_addr: {e}");
+        std::process::exit(1);
+    });
+    tracing::info!(%local, "listening");
+    eprintln!("gtd-server: listening on {local}");
+
+    if let Err(e) = axum::serve(listener, app).await {
+        eprintln!("gtd-server: ERROR server exited: {e}");
+        std::process::exit(1);
+    }
 }

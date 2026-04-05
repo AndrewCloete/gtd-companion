@@ -2,8 +2,11 @@ services:
   backend:
     build: ./backend
     restart: unless-stopped
+    environment:
+      RUST_LOG: ${RUST_LOG:-info}
+      RUST_BACKTRACE: ${RUST_BACKTRACE:-1}
     ports:
-      - "10084:10084"
+      - "${GTD_BACKEND_PORT:-10084}:10084"
 
   web:
     build:
