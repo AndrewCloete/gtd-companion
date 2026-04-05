@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import * as _ from "lodash/fp";
 
 export namespace Data {
-  const statuses = [
+  export const statuses = [
     "Todo",
     "Wip",
     "NoStatus",
@@ -444,6 +444,72 @@ export class Tasks {
     })(t);
   }
 
+  /** Section ids: merged `wip` (Wip+Review), else `Data.TaskStatus`. Ordered by statusRank, wip first. */
+  static discoverLeftPaneSectionIds(statuses: Data.TaskStatus[]): string[] {
+    const sorted = _.sortBy((s: Data.TaskStatus) => Number(Data.statusRank[s]))(
+      _.uniq(statuses)
+    );
+    const ids: string[] = [];
+    if (sorted.some((s) => s === "Wip" || s === "Review")) {
+      ids.push("wip");
+    }
+    for (const s of sorted) {
+      if (s === "Wip" || s === "Review") {
+        continue;
+      }
+      ids.push(s);
+    }
+    return ids;
+  }
+
+  static leftPaneSectionLabel(sectionId: string): string {
+    if (sectionId === "wip") {
+      return "WIP";
+    }
+    if (sectionId === "NoStatus") {
+      return "Backlog";
+    }
+    if (sectionId === "Week") {
+      return "Weekly";
+    }
+    if (sectionId === "Month") {
+      return "Monthly";
+    }
+    return sectionId;
+  }
+
+  static leftPaneSectionTasks(
+    sectionId: string,
+    buckets: {
+      wip: Task[];
+      week: Task[];
+      month: Task[];
+      todo: Task[];
+      backlog: Task[];
+      visibleTasks: Task[];
+    }
+  ): Task[] {
+    switch (sectionId) {
+      case "wip":
+        return buckets.wip;
+      case "Week":
+        return buckets.week;
+      case "Month":
+        return buckets.month;
+      case "Todo":
+        return buckets.todo;
+      case "NoStatus":
+        return buckets.backlog;
+      default:
+        if ((Data.statuses as readonly string[]).includes(sectionId)) {
+          return buckets.visibleTasks.filter(
+            (t) => t.data.status === sectionId
+          );
+        }
+        return [];
+    }
+  }
+
   static statusSplit(
     statuses: Data.TaskStatus[],
     tasks: Task[]
@@ -602,7 +668,6 @@ export class Tasks {
             start: TaskDate.toYYYYMMDD(sunday),
             due: TaskDate.toYYYYMMDD(sunday),
           },
-          starred: false,
         });
       }
     );

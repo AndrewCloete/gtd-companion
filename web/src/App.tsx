@@ -9,23 +9,20 @@ import {
 } from "./redux/projectFilter";
 import { useAppSelector, useAppDispatch } from "./hooks";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import {
+  type ChangeEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import env from "./config.json";
 import * as m from "./model";
 import * as vm from "./viewmodel";
 
 type TaskGroupBy = "Project" | "Tags"
-
-type SectionId = "wip" | "week" | "month" | "schedule" | "todo" | "backlog";
-const SECTIONS: { id: SectionId; label: string }[] = [
-  { id: "wip",      label: "WIP"      },
-  { id: "week",     label: "Week"     },
-  { id: "month",    label: "Month"    },
-  { id: "todo",     label: "Todo"     },
-  { id: "backlog",  label: "Backlog"  },
-];
-const ALL_SECTIONS = new Set<SectionId>(SECTIONS.map((s) => s.id));
 
 function getToday(): Date {
   return new Date();
@@ -295,24 +292,20 @@ function DatePicker(props: {
   date: Date | undefined;
   setDate: (date: Date | undefined) => void;
 }) {
-  let [dateStr, setDateStr] = useState<string | undefined>();
+  const value = props.date ? m.TaskDate.fmt(props.date, "yyyy-MM-dd") : "";
 
-  useEffect(() => {
-    if (props.date) {
-      setDateStr(m.TaskDate.fmt(props.date, "yyyyMMdd"));
+  function handleChange(event: ChangeEvent<HTMLInputElement>) {
+    const val = event.target.value;
+    if (!val) {
+      props.setDate(undefined);
+      return;
     }
-  }, []);
-
-  function handleChange(event: any) {
-    let val = event.target.value;
-    console.log(val);
-    setDateStr(val);
-    const newDate = parse(val, "yyyyMMdd", new Date());
+    const newDate = parse(val, "yyyy-MM-dd", new Date());
     if (isValid(newDate)) {
-      console.log(newDate);
       props.setDate(newDate);
     }
   }
+
   function clear(): void {
     props.setDate(undefined);
   }
@@ -324,7 +317,12 @@ function DatePicker(props: {
     <>
       <button onClick={today}>Today</button>
       <button onClick={clear}>All</button>
-      <input className="ToolbarInput" type="text" value={dateStr} onChange={handleChange} />
+      <input
+        className="ToolbarInput ToolbarDateInput"
+        type="date"
+        value={value}
+        onChange={handleChange}
+      />
     </>
   );
 }
@@ -334,15 +332,16 @@ function App() {
   let [gtdTasks, setTasks] = useState<m.Tasks>(m.Tasks.empty());
   let [visibleDate, setVisibleDate] = useState<Date | undefined>(getToday());
   let [groupBy, setGroupBy] = useState<TaskGroupBy>("Project");
-  let [visibleSections, setVisibleSections] = useState<Set<SectionId>>(new Set(ALL_SECTIONS));
+  let [visibleSections, setVisibleSections] = useState<Set<string>>(new Set());
   let [sectionDropdownOpen, setSectionDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const prevSectionIdsRef = useRef<Set<string>>(new Set());
 
   function flipGroupBy() {
     setGroupBy((g) => (g === "Project" ? "Tags" : "Project"));
   }
 
-  function toggleSection(id: SectionId) {
+  function toggleSection(id: string) {
     setVisibleSections((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
@@ -424,18 +423,65 @@ function App() {
     };
   }, [handleKeyPress]);
 
-  const { tasks, wip, week, month, non_wip, has_date, no_date } = m.Tasks.subdivide(
-    gtdTasks
+  const discoveryStatuses = useMemo(() => {
+    const tasks = gtdTasks
       .filter_by_project(projectFilter)
       .filter_by_context(contextFilter)
-      .filter_by_visibility(visibleDate).tasks
+      .tasks;
+    return _.uniq(tasks.map((t) => t.data.status));
+  }, [gtdTasks, projectFilter, contextFilter]);
+
+  const sectionIds = useMemo(
+    () => m.Tasks.discoverLeftPaneSectionIds(discoveryStatuses),
+    [discoveryStatuses]
   );
+
+  const sectionDescriptors = useMemo(
+    () =>
+      sectionIds.map((id) => ({
+        id,
+        label: m.Tasks.leftPaneSectionLabel(id),
+      })),
+    [sectionIds]
+  );
+
+  useEffect(() => {
+    const allowed = new Set(sectionIds);
+    const prevAllowed = prevSectionIdsRef.current;
+    setVisibleSections((prev) => {
+      const next = new Set<string>();
+      for (const id of allowed) {
+        if (!prevAllowed.has(id) || prev.has(id)) {
+          next.add(id);
+        }
+      }
+      return next;
+    });
+    prevSectionIdsRef.current = allowed;
+  }, [sectionIds]);
+
+  const filteredVisibleTasks = gtdTasks
+    .filter_by_project(projectFilter)
+    .filter_by_context(contextFilter)
+    .filter_by_visibility(visibleDate).tasks;
+
+  const { wip, week, month, has_date, no_date } =
+    m.Tasks.subdivide(filteredVisibleTasks);
   const todoSplit = m.Tasks.statusSplit(["Todo"], no_date);
   const noStatusSplit = m.Tasks.statusSplit(["NoStatus"], todoSplit.other_status);
   const withMeta = m.Tasks.addMetaTasks(has_date);
   const week_blocks = vm.WeekBlock.fromTasks(withMeta);
 
-  const show = (id: SectionId) => visibleSections.has(id);
+  const leftPaneBuckets = {
+    wip,
+    week,
+    month,
+    todo: todoSplit.has_status,
+    backlog: noStatusSplit.has_status,
+    visibleTasks: filteredVisibleTasks,
+  };
+
+  const show = (id: string) => visibleSections.has(id);
 
   return (
     <div className="App">
@@ -470,7 +516,7 @@ function App() {
           </button>
           {sectionDropdownOpen && (
             <div className="DropdownPanel">
-              {SECTIONS.map(({ id, label }) => (
+              {sectionDescriptors.map(({ id, label }) => (
                 <div key={id} className="DropdownItem" onClick={() => toggleSection(id)}>
                   <span className="DropdownCheck">{visibleSections.has(id) ? "×" : " "}</span>
                   {label}
@@ -483,25 +529,19 @@ function App() {
 
       <div className="MainContent">
         <div className="LeftPane">
-          {show("wip") && <>
-            <h2>WIP</h2>
-            <NoScheduleBlock tasks={wip} groupby={groupBy} />
-          </>}
-          {show("week") && <>
-            <h2>Weekly</h2>
-            <NoScheduleBlock tasks={week} groupby={groupBy} />
-          </>}
-          {show("month") && <>
-            <h2>Monthly</h2>
-            <NoScheduleBlock tasks={month} groupby={groupBy} />
-          </>}
-          {show("todo") && (
-            <NoScheduleBlock tasks={m.Tasks.tasksBy_Status(todoSplit.has_status)} groupby={groupBy} />
+          {sectionDescriptors.map(({ id, label }) =>
+            show(id) ? (
+              <div key={id}>
+                <h2>{label}</h2>
+                <NoScheduleBlock
+                  tasks={m.Tasks.tasksBy_Status(
+                    m.Tasks.leftPaneSectionTasks(id, leftPaneBuckets)
+                  )}
+                  groupby={groupBy}
+                />
+              </div>
+            ) : null
           )}
-          {show("backlog") && <>
-            <h2>Backlog</h2>
-            <NoScheduleBlock tasks={m.Tasks.tasksBy_Status(noStatusSplit.has_status)} groupby={groupBy} />
-          </>}
         </div>
         <div className="RightPane">
           <WeekBlocks week_blocks={week_blocks} />

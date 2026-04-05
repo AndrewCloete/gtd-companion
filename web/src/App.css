@@ -290,6 +290,18 @@ button:active {
   border-color: var(--text-primary);
 }
 
+.ToolbarDateInput {
+  width: auto;
+  min-width: 10.5em;
+  color-scheme: dark;
+  font-family: inherit;
+}
+.ToolbarDateInput::-webkit-calendar-picker-indicator {
+  filter: invert(0.85);
+  cursor: pointer;
+  opacity: 0.85;
+}
+
 .FilterChip {
   display: inline-flex;
   align-items: center;
