@@ -263,7 +263,6 @@ export class Task {
   dates: TaskDates;
   start_ref: Task | undefined;
   due_ref: Task | undefined;
-  range_key: string | undefined;
 
   constructor(data: Data.Task) {
     this.data = data;
@@ -279,7 +278,6 @@ export class Task {
       return [task];
     }
     const due = task.clone();
-    task.range_key = task.cleanDescription();
     task.addDiscriptionSuffix(" (start)");
     task.due_ref = due;
     due.dates.removeDate("START");
@@ -416,14 +414,6 @@ export class Tasks {
 
   split_with_due(): Tasks {
     return new Tasks(this.tasks.flatMap((t) => Task.splitWithDue(t)));
-  }
-
-  range_keys(): string[] {
-    return this.tasks
-      .map((t) => t.range_key)
-      .filter((d: string | undefined): d is string => {
-        return d !== undefined;
-      });
   }
 
   static empty(): Tasks {
