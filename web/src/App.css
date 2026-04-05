@@ -1,0 +1,190 @@
+/* :root { */
+/*   --darkest: #292624; */
+/*   --darker: #332f2d; */
+/*   --dark: #3c3836; */
+/*   --alert: #cc241d; */
+/*   --warn: #d79921; */
+/*   --info: #458588; */
+/*   --success: #8ec07c; */
+/*   --text-primary: whitesmoke; */
+/*   --border: darkgrey; */
+/* } */
+
+:root {
+  --darkest: hsl(20, 7%, 13%);
+  --darker: hsl(15, 7%, 20%);
+  --dark: hsl(20, 7%, 24%);
+  --alert: hsl(2, 78%, 46%);
+  --warn: hsl(38, 73%, 49%);
+  --info: hsl(182, 33%, 40%);
+  --success: hsl(95, 35%, 62%);
+  --text-primary: hsl(0, 0%, 70%); /* Whitesmoke */
+  --text-secondary: hsl(0, 0%, 40%); /* Whitesmoke */
+  --border: hsl(0, 0%, 41%); /* Darkgrey */
+  --border-radius: 15px;
+}
+
+.App {
+  background-color: var(--dark);
+  color: var(--text-primary);
+  font-family: monospace;
+  min-height: 100vh;
+}
+
+.Split {
+  display: flex;
+}
+
+.TaskDate {
+  font-size: 10px;
+}
+
+h2 {
+  padding-left: 15px;
+}
+
+.Contexts {
+  color: var(--success);
+  font-weight: bold;
+}
+
+.ContextsExtra {
+  color: var(--info);
+}
+
+.DayBlock {
+  /* margin: 5px 5px; */
+  padding-top: 5px;
+  padding-bottom: 5px;
+  /* border-style: solid; */
+  border-color: var(--border);
+  border-bottom-left-radius: var(--border-radius);
+  border-bottom-right-radius: var(--border-radius);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+
+  .DayBlockDate {
+    width: 5em;
+    text-align: center;
+    vertical-align: middle;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0px 5px 0px 5px;
+
+    .Date {
+      font-weight: bold;
+    }
+    .DateDiff {
+      color: var(--success);
+    }
+  }
+}
+.DayDiff_NONE {
+}
+.DayDiff_NEGATIVE {
+  color: var(--alert);
+}
+.DayDiff_TODAY {
+  color: var(--warn);
+}
+.DayDiff_POSITIVE {
+}
+.TaskLine {
+  display: flex;
+
+  .Project {
+    text-align: right;
+    width: 13em;
+    margin-right: 5px;
+    padding-right: 5px;
+    color: var(--text-secondary);
+    font-style: italic;
+  }
+
+  .Status_Todo {
+    color: var(--info);
+  }
+
+  .Description {
+    width: 25em;
+    /* border-bottom: 1px dotted var(--border); */
+    display: inline;
+  }
+
+  .TaskType_NO_DATES {
+  }
+  .TaskType_DUE {
+    color: var(--warn);
+  }
+  .TaskType_DUE_WITH_START {
+    color: var(--alert);
+  }
+  .TaskType_START {
+  }
+  .TaskType_START_WITH_DUE {
+    color: var(--info);
+  }
+  .TaskType_VISIBLE_ONLY {
+  }
+}
+
+.NoScheduleBlockDate {
+  .Dow {
+    width: 2em;
+    display: inline-block;
+  }
+  .Diff {
+    width: 2em;
+    display: inline-block;
+  }
+  .Date {
+    width: 4em;
+    display: inline-block;
+  }
+}
+
+.WeekBlock {
+  margin: 10px;
+  margin-top: 15px;
+  /* padding: 5px; */
+  border-top: 1px solid var(--darker);
+  border-bottom-left-radius: var(--border-radius);
+  border-bottom-right-radius: var(--border-radius);
+  /* margin-left: 5px; */
+  /* margin-right: 5px; */
+  /* border-style: solid; */
+  /* border-color: var(--darker); */
+  /* border-width: 0px 0px 5px 0px; */
+  .WeekRangeDiv {
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    font-weight: bold;
+
+    .WeekRange {
+      color: var(--border);
+    }
+    .WeeksAway {
+      color: var(--border);
+      width: 1em;
+      display: inline-block;
+      text-align: right;
+    }
+  }
+  background-color: var(--darker);
+  transition-duration: 0.1s;
+}
+.DayBlock:hover {
+  /* background-color: var(--darkest); */
+  box-shadow: 0 3px 2px var(--darkest);
+}
+.WeekBlocks {
+  margin: 10px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+.NoScheduleBlock {
+  padding: 10px;
+}
