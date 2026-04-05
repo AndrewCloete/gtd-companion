@@ -28,19 +28,80 @@
   background-color: var(--dark);
   color: var(--text-primary);
   font-family: monospace;
-  min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.Split {
+.MainContent {
   display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.LeftPane {
+  flex: 1;
+  overflow-y: auto;
+  min-width: 0;
+  scrollbar-width: none;
+  overscroll-behavior: none;
+}
+.LeftPane::-webkit-scrollbar {
+  display: none;
+}
+
+.RightPane {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--darker);
+  scrollbar-width: none;
+  overscroll-behavior: none;
+}
+.RightPane::-webkit-scrollbar {
+  display: none;
+}
+
+button {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-family: monospace;
+  font-size: 0.8em;
+  padding: 1px 7px;
+  cursor: pointer;
+  border-radius: 2px;
+  margin-right: 4px;
+}
+button:hover {
+  color: var(--text-primary);
+  border-color: var(--text-primary);
+}
+button:active {
+  background-color: var(--darker);
+}
+
+.LeftPane h2 {
+  font-size: 0.7em;
+  font-weight: bold;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin: 14px 0 8px 0;
+  padding: 6px 15px;
+  border-left: 2px solid var(--info);
+  border-bottom: 1px solid var(--border);
+  background-color: var(--darker);
+  box-sizing: border-box;
+  width: 100%;
+}
+.LeftPane h2:first-child {
+  margin-top: 0;
 }
 
 .TaskDate {
   font-size: 10px;
-}
-
-h2 {
-  padding-left: 15px;
 }
 
 .Contexts {
@@ -108,8 +169,8 @@ h2 {
 
   .Description {
     width: 25em;
-    /* border-bottom: 1px dotted var(--border); */
     display: inline;
+    cursor: pointer;
   }
 
   .TaskType_NO_DATES {
@@ -187,4 +248,96 @@ h2 {
 
 .NoScheduleBlock {
   padding: 10px;
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────────────────── */
+
+.Toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--darker);
+  flex-shrink: 0;
+}
+
+.ToolbarSep {
+  color: var(--darker);
+  user-select: none;
+  padding: 0 2px;
+}
+
+.ToolbarDim {
+  color: var(--darker);
+  font-size: 0.8em;
+  font-style: italic;
+  padding: 1px 4px;
+}
+
+.ToolbarInput {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-family: monospace;
+  font-size: 0.8em;
+  padding: 1px 6px;
+  border-radius: 2px;
+  width: 7em;
+}
+.ToolbarInput:focus {
+  outline: none;
+  border-color: var(--text-primary);
+}
+
+.FilterChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-primary);
+  font-size: 0.8em;
+  border: 1px solid var(--border);
+  padding: 1px 7px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+.FilterChip:hover {
+  border-color: var(--alert);
+  color: var(--alert);
+}
+
+.ToolbarDropdown {
+  position: relative;
+}
+
+.DropdownPanel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  background-color: var(--darkest);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 4px 0;
+  z-index: 100;
+  min-width: 110px;
+}
+
+.DropdownItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 12px;
+  cursor: pointer;
+  font-size: 0.8em;
+  color: var(--text-secondary);
+  user-select: none;
+}
+.DropdownItem:hover {
+  background-color: var(--darker);
+  color: var(--text-primary);
+}
+.DropdownCheck {
+  width: 1em;
+  text-align: center;
+  color: var(--success);
 }

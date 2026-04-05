@@ -9,13 +9,23 @@ import {
 } from "./redux/projectFilter";
 import { useAppSelector, useAppDispatch } from "./hooks";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 
 import env from "./config.json";
 import * as m from "./model";
 import * as vm from "./viewmodel";
 
 type TaskGroupBy = "Project" | "Tags"
+
+type SectionId = "wip" | "week" | "month" | "schedule" | "todo" | "backlog";
+const SECTIONS: { id: SectionId; label: string }[] = [
+  { id: "wip",      label: "WIP"      },
+  { id: "week",     label: "Week"     },
+  { id: "month",    label: "Month"    },
+  { id: "todo",     label: "Todo"     },
+  { id: "backlog",  label: "Backlog"  },
+];
+const ALL_SECTIONS = new Set<SectionId>(SECTIONS.map((s) => s.id));
 
 function getToday(): Date {
   return new Date();
@@ -311,11 +321,11 @@ function DatePicker(props: {
   }
 
   return (
-    <div>
+    <>
       <button onClick={today}>Today</button>
-      <button onClick={clear}>Clear</button>
-      <input type="text" value={dateStr} onChange={handleChange} />
-    </div>
+      <button onClick={clear}>All</button>
+      <input className="ToolbarInput" type="text" value={dateStr} onChange={handleChange} />
+    </>
   );
 }
 
@@ -324,15 +334,20 @@ function App() {
   let [gtdTasks, setTasks] = useState<m.Tasks>(m.Tasks.empty());
   let [visibleDate, setVisibleDate] = useState<Date | undefined>(getToday());
   let [groupBy, setGroupBy] = useState<TaskGroupBy>("Project");
-
+  let [visibleSections, setVisibleSections] = useState<Set<SectionId>>(new Set(ALL_SECTIONS));
+  let [sectionDropdownOpen, setSectionDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   function flipGroupBy() {
-    function flip() {
-      if (groupBy == "Project")
-        return "Tags"
-      return "Project"
-    }
-    setGroupBy(flip())
+    setGroupBy((g) => (g === "Project" ? "Tags" : "Project"));
+  }
+
+  function toggleSection(id: SectionId) {
+    setVisibleSections((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   }
 
   async function loadTasks() {
@@ -382,6 +397,17 @@ function App() {
     return () => clearInterval(intervalId);
   }, []);
 
+  // Close section dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setSectionDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const projectFilter = useAppSelector((state) => state.taskFilter.project);
   const contextFilter = useAppSelector((state) => state.taskFilter.context);
 
@@ -392,10 +418,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // attach the event listener
     document.addEventListener("keydown", handleKeyPress);
-
-    // remove the event listener
     return () => {
       document.removeEventListener("keydown", handleKeyPress);
     };
@@ -408,48 +431,81 @@ function App() {
       .filter_by_visibility(visibleDate).tasks
   );
   const todoSplit = m.Tasks.statusSplit(["Todo"], no_date);
-  const noStatusSplit = m.Tasks.statusSplit(
-    ["NoStatus"],
-    todoSplit.other_status,
-  );
-
-
-
+  const noStatusSplit = m.Tasks.statusSplit(["NoStatus"], todoSplit.other_status);
   const withMeta = m.Tasks.addMetaTasks(has_date);
   const week_blocks = vm.WeekBlock.fromTasks(withMeta);
 
+  const show = (id: SectionId) => visibleSections.has(id);
+
   return (
     <div className="App">
-      <div>
-          <DatePicker date={visibleDate} setDate={setVisibleDate}></DatePicker>
-          <div>
-            <button onClick={() => dispatch(unsetProject())}>Clear</button>
-            <span>{projectFilter}</span>
-          </div>
-          <div>
-            <button onClick={() => dispatch(unsetContext())}>Clear</button>
-            <span>{contextFilter}</span>
-          </div>
-          <div>
-            <button onClick={flipGroupBy}>GroupBy</button>
-            <span>{groupBy}</span>
-          </div>
-          <h2>WIP</h2>
-          <NoScheduleBlock tasks={wip} groupby={groupBy}></NoScheduleBlock>
-          <h2>Weekly</h2>
-          <NoScheduleBlock tasks={week} groupby={groupBy}></NoScheduleBlock>
-          <h2>Monthly</h2>
-          <NoScheduleBlock tasks={month} groupby={groupBy}></NoScheduleBlock>
-          <WeekBlocks week_blocks={week_blocks}></WeekBlocks>
-          <NoScheduleBlock
-            tasks={m.Tasks.tasksBy_Status(todoSplit.has_status)}
-            groupby={groupBy}
-          ></NoScheduleBlock>
-          <h2>Backlog</h2>
-          <NoScheduleBlock
-            tasks={m.Tasks.tasksBy_Status(noStatusSplit.has_status)}
-            groupby={groupBy}
-          ></NoScheduleBlock>
+      <div className="Toolbar">
+        <DatePicker date={visibleDate} setDate={setVisibleDate} />
+
+        <span className="ToolbarSep">|</span>
+
+        {projectFilter
+          ? <span className="FilterChip" onClick={() => dispatch(unsetProject())}>
+              {projectFilter} ×
+            </span>
+          : <span className="ToolbarDim">project</span>
+        }
+
+        {contextFilter
+          ? <span className="FilterChip" onClick={() => dispatch(unsetContext())}>
+              {contextFilter} ×
+            </span>
+          : <span className="ToolbarDim">context</span>
+        }
+
+        <span className="ToolbarSep">|</span>
+
+        <button onClick={flipGroupBy}>{groupBy}</button>
+
+        <span className="ToolbarSep">|</span>
+
+        <div className="ToolbarDropdown" ref={dropdownRef}>
+          <button onClick={() => setSectionDropdownOpen((o) => !o)}>
+            Sections {sectionDropdownOpen ? "▴" : "▾"}
+          </button>
+          {sectionDropdownOpen && (
+            <div className="DropdownPanel">
+              {SECTIONS.map(({ id, label }) => (
+                <div key={id} className="DropdownItem" onClick={() => toggleSection(id)}>
+                  <span className="DropdownCheck">{visibleSections.has(id) ? "×" : " "}</span>
+                  {label}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="MainContent">
+        <div className="LeftPane">
+          {show("wip") && <>
+            <h2>WIP</h2>
+            <NoScheduleBlock tasks={wip} groupby={groupBy} />
+          </>}
+          {show("week") && <>
+            <h2>Weekly</h2>
+            <NoScheduleBlock tasks={week} groupby={groupBy} />
+          </>}
+          {show("month") && <>
+            <h2>Monthly</h2>
+            <NoScheduleBlock tasks={month} groupby={groupBy} />
+          </>}
+          {show("todo") && (
+            <NoScheduleBlock tasks={m.Tasks.tasksBy_Status(todoSplit.has_status)} groupby={groupBy} />
+          )}
+          {show("backlog") && <>
+            <h2>Backlog</h2>
+            <NoScheduleBlock tasks={m.Tasks.tasksBy_Status(noStatusSplit.has_status)} groupby={groupBy} />
+          </>}
+        </div>
+        <div className="RightPane">
+          <WeekBlocks week_blocks={week_blocks} />
+        </div>
       </div>
     </div>
   );
