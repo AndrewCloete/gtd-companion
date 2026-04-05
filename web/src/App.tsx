@@ -11,7 +11,7 @@ import { useAppSelector, useAppDispatch } from "./hooks";
 
 import { useEffect, useState, useCallback } from "react";
 
-import env from "./.env.json";
+import env from "./config.json";
 import * as m from "./model";
 import * as vm from "./viewmodel";
 
@@ -38,6 +38,12 @@ async function star_task(task: m.Task): Promise<undefined> {
   };
   //@ts-ignore
   return await fetch(get_url() + "/star", requestOptionsFetch);
+}
+
+function open_in_editor(task: m.Task) {
+  if (!task.data.file_path || !task.data.line) return;
+  const scheme = (env as any).editor_scheme ?? "vscode";
+  window.open(`${scheme}://file/${task.data.file_path}:${task.data.line}`);
 }
 
 async function getTasks(): Promise<m.Tasks> {
@@ -84,7 +90,7 @@ function ProjectBlock(props: { project: string; tasks: m.Task[] }) {
                 id={task.cleanDescription()}
                 key={task.key()}
                 className={`Description TaskType_${task.classify()}`}
-                onClick={() => star_task(task)}
+                onClick={(e) => e.metaKey ? open_in_editor(task) : star_task(task)}
               >
                 {task.cleanDescription()}
               </div>
@@ -130,7 +136,7 @@ function ContextBlock(props: { context: string; tasks: m.Task[] }) {
                 id={task.cleanDescription()}
                 key={task.key()}
                 className={`Description TaskType_${task.classify()}`}
-                onClick={() => star_task(task)}
+                onClick={(e) => e.metaKey ? open_in_editor(task) : star_task(task)}
               >
                 {task.cleanDescription()}
               </div>
@@ -268,7 +274,7 @@ function NoScheduleBlock(props: { tasks: m.Task[], groupby: TaskGroupBy }) {
         </div>
         <div
           className={`Description Status_${props.task.data.status} TaskType_${props.task.classify()}`}
-          onClick={() => star_task(props.task)}
+          onClick={(e) => e.metaKey ? open_in_editor(props.task) : star_task(props.task)}
         >
           {props.task.cleanDescription()}
         </div>

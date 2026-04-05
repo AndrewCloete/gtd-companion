@@ -223,6 +223,12 @@ pub struct Task {
     #[serde(default)]
     pub dates: Option<TaskDates>,
     pub starred: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub file_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub line: Option<u32>,
 }
 impl Task {
     pub fn re_any() -> Regex {
@@ -231,7 +237,7 @@ impl Task {
             .unwrap()
     }
 
-    pub fn from(task: &str, project: &str) -> Task {
+    pub fn from(task: &str, project: &str, file_path: Option<String>, line: Option<u32>) -> Task {
         let status = TaskStatus::classify(task);
         let contexts = TaskContext::extract_contexts(task);
         let dates = TaskDates::extract_dates(task);
@@ -246,6 +252,8 @@ impl Task {
             contexts,
             dates,
             starred: false,
+            file_path,
+            line,
         }
     }
 

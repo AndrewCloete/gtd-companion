@@ -196,17 +196,20 @@ fn main() {
     let projects: Vec<Project> = file_paths
         .flat_map(|file_path| {
             let file_name: String = file_path.file_name().to_str().unwrap().into();
+            let full_path: String = file_path.path().to_string_lossy().to_string();
 
             let file_content = fs::read_to_string(&file_path.path()).unwrap_or("".to_string());
 
-            let task_lines = file_content
+            let task_lines: Vec<(u32, String)> = file_content
                 .lines()
-                .map(|line| String::from(line))
-                .filter(|line| LIST_ITEM_RE.is_match(line));
+                .enumerate()
+                .map(|(i, line)| (i as u32 + 1, String::from(line)))
+                .filter(|(_, line)| LIST_ITEM_RE.is_match(line))
+                .collect();
 
-            let first_line = task_lines.clone().next().unwrap_or("".into());
+            let first_line = task_lines.first().map(|(_, l)| l.clone()).unwrap_or("".into());
             let gtd_task = if first_line.starts_with("- @gtd") {
-                Some(Task::from(&first_line, &file_name))
+                Some(Task::from(&first_line, &file_name, None, None))
             } else {
                 None
             };
@@ -214,9 +217,10 @@ fn main() {
             let tasks: Vec<Task> = if gtd_task.is_some() {
                 let gt = gtd_task.as_ref().unwrap().clone();
                 task_lines
-                    .filter(|l| !l.starts_with("- @gtd"))
-                    .map(|l| {
-                        let mut t = Task::from(&l, &file_name);
+                    .iter()
+                    .filter(|(_, l)| !l.starts_with("- @gtd"))
+                    .map(|(line_num, l)| {
+                        let mut t = Task::from(&l, &file_name, Some(full_path.clone()), Some(*line_num));
                         if t.status == TaskStatus::NoStatus {
                             // Replace NoStatus with GTD task status
                             t.status = gt.status.clone();
@@ -251,8 +255,9 @@ fn main() {
                     .collect::<Vec<Task>>()
             } else {
                 task_lines
-                    .filter(|line| re.is_match(line))
-                    .map(|l| Task::from(&l, &file_name))
+                    .iter()
+                    .filter(|(_, line)| re.is_match(line))
+                    .map(|(line_num, l)| Task::from(&l, &file_name, Some(full_path.clone()), Some(*line_num)))
                     .filter(|task| !task.has_noflags())
                     .filter(|task| statuses.is_empty() || statuses.contains(&task.status))
                     .filter(|task| {
@@ -282,7 +287,7 @@ fn main() {
                 },
             );
             return Some(Project {
-                file_name: file_path.file_name().to_str().unwrap().into(),
+                file_name,
                 tasks: grouped_tasks,
             });
         })

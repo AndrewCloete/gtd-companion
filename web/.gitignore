@@ -23,5 +23,6 @@ yarn-debug.log*
 yarn-error.log*
 
 gtd-out.json
+config.json
 .env.json
 .env.*.json

@@ -42,6 +42,8 @@ export namespace Data {
     single_context?: Context;
     dates: TaskDates | undefined;
     starred: boolean;
+    file_path?: string;
+    line?: number;
   };
 }
 
