@@ -31,7 +31,7 @@ function get_url() {
 function open_in_editor(task: m.Task) {
   if (!task.data.file_path || !task.data.line) return;
   const scheme = (env as any).editor_scheme ?? "vscode";
-  window.open(`${scheme}://file/${task.data.file_path}:${task.data.line}`);
+  window.location.href = `${scheme}://file/${task.data.file_path}:${task.data.line}`;
 }
 
 async function getTasks(): Promise<m.Tasks> {
