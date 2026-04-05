@@ -17,6 +17,6 @@ services:
         GTD_EDITOR_SCHEME: ${GTD_EDITOR_SCHEME:-vscode}
     restart: unless-stopped
     ports:
-      - "3000:3030"
+      - "3030:80"
     depends_on:
       - backend
