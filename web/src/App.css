@@ -51,6 +51,10 @@
   display: none;
 }
 
+.LeftPaneSection {
+  padding-bottom: 1.1rem;
+}
+
 .RightPane {
   flex: 1;
   min-width: 0;
@@ -96,7 +100,7 @@ button:active {
   box-sizing: border-box;
   width: 100%;
 }
-.LeftPane h2:first-child {
+.LeftPane > .LeftPaneSection:first-child h2 {
   margin-top: 0;
 }
 
@@ -344,12 +348,46 @@ button:active {
   color: var(--text-secondary);
   user-select: none;
 }
+.DropdownDragHandle {
+  flex: 0 0 auto;
+  color: var(--border);
+  font-size: 0.65em;
+  letter-spacing: -0.12em;
+  padding: 2px 4px 2px 0;
+}
+.DropdownDragHandleDraggable {
+  cursor: grab;
+}
+.DropdownDragHandleDraggable:active {
+  cursor: grabbing;
+}
+.DropdownLabel {
+  flex: 1;
+  min-width: 0;
+}
 .DropdownItem:hover {
   background-color: var(--darker);
   color: var(--text-primary);
 }
 .DropdownCheck {
-  width: 1em;
+  flex: 0 0 auto;
+  min-width: 1.25em;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: none;
+  font: inherit;
   text-align: center;
   color: var(--success);
+  cursor: pointer;
+  line-height: 1.2;
+}
+.DropdownCheck:hover {
+  color: var(--text-primary);
+}
+.DropdownCheck[aria-pressed="false"] {
+  color: var(--border);
+}
+.DropdownCheck[aria-pressed="false"]:hover {
+  color: var(--text-secondary);
 }

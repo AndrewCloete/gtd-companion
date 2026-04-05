@@ -3,28 +3,8 @@ import { format } from "date-fns";
 import * as _ from "lodash/fp";
 
 export namespace Data {
-  export const statuses = [
-    "Todo",
-    "Wip",
-    "NoStatus",
-    "Review",
-    "Sunday",
-    "Today",
-    "Week",
-    "Month",
-  ] as const;
-  export type TaskStatus = (typeof statuses)[number];
-
-  export const statusRank: Record<TaskStatus, Number> = {
-    Wip: 1,
-    Week: 2,
-    Month: 3,
-    Review: 4,
-    Todo: 5,
-    NoStatus: 6,
-    Sunday: 7,
-    Today: 8,
-  };
+  /** Opaque string from the backend; the UI does not branch on particular values. */
+  export type TaskStatus = string;
   export type Project = string;
   export type Context = string;
 
@@ -444,93 +424,6 @@ export class Tasks {
     })(t);
   }
 
-  /** Section ids: merged `wip` (Wip+Review), else `Data.TaskStatus`. Ordered by statusRank, wip first. */
-  static discoverLeftPaneSectionIds(statuses: Data.TaskStatus[]): string[] {
-    const sorted = _.sortBy((s: Data.TaskStatus) => Number(Data.statusRank[s]))(
-      _.uniq(statuses)
-    );
-    const ids: string[] = [];
-    if (sorted.some((s) => s === "Wip" || s === "Review")) {
-      ids.push("wip");
-    }
-    for (const s of sorted) {
-      if (s === "Wip" || s === "Review") {
-        continue;
-      }
-      ids.push(s);
-    }
-    return ids;
-  }
-
-  static leftPaneSectionLabel(sectionId: string): string {
-    if (sectionId === "wip") {
-      return "WIP";
-    }
-    if (sectionId === "NoStatus") {
-      return "Backlog";
-    }
-    if (sectionId === "Week") {
-      return "Weekly";
-    }
-    if (sectionId === "Month") {
-      return "Monthly";
-    }
-    return sectionId;
-  }
-
-  static leftPaneSectionTasks(
-    sectionId: string,
-    buckets: {
-      wip: Task[];
-      week: Task[];
-      month: Task[];
-      todo: Task[];
-      backlog: Task[];
-      visibleTasks: Task[];
-    }
-  ): Task[] {
-    switch (sectionId) {
-      case "wip":
-        return buckets.wip;
-      case "Week":
-        return buckets.week;
-      case "Month":
-        return buckets.month;
-      case "Todo":
-        return buckets.todo;
-      case "NoStatus":
-        return buckets.backlog;
-      default:
-        if ((Data.statuses as readonly string[]).includes(sectionId)) {
-          return buckets.visibleTasks.filter(
-            (t) => t.data.status === sectionId
-          );
-        }
-        return [];
-    }
-  }
-
-  static statusSplit(
-    statuses: Data.TaskStatus[],
-    tasks: Task[]
-  ): {
-    has_status: Task[];
-    other_status: Task[];
-  } {
-    const [has_status, other_status] = tasks.reduce<[Task[], Task[]]>(
-      ([pass, fail], task) => {
-        if (statuses.includes(task.data.status)) {
-          pass.push(task);
-        } else {
-          fail.push(task);
-        }
-        return [pass, fail];
-      },
-      [[], []]
-    );
-    return { has_status, other_status };
-  }
-
   static dateSplit(tasks: Task[]): {
     has_date: Task[];
     no_date: Task[];
@@ -549,64 +442,8 @@ export class Tasks {
     return { has_date, no_date };
   }
 
-  static subdivide(tasks: Task[]): {
-    tasks: Task[];
-    wip: Task[];
-    week: Task[];
-    month: Task[];
-    non_wip: Task[];
-    has_date: Task[];
-    no_date: Task[];
-  } {
-    const [wip, non_wip1] = tasks.reduce<[Task[], Task[]]>(
-      ([pass, fail], task) => {
-        if (task.data.status === "Wip" || task.data.status === "Review") {
-          pass.push(task);
-        } else {
-          fail.push(task);
-        }
-        return [pass, fail];
-      },
-      [[], []]
-    );
-
-    const [week, non_wip2] = non_wip1.reduce<[Task[], Task[]]>(
-      ([pass, fail], task) => {
-        if (task.data.status === "Week") {
-          pass.push(task);
-        } else {
-          fail.push(task);
-        }
-        return [pass, fail];
-      },
-      [[], []]
-    );
-
-    const [month, non_wip] = non_wip2.reduce<[Task[], Task[]]>(
-      ([pass, fail], task) => {
-        if (task.data.status === "Month") {
-          pass.push(task);
-        } else {
-          fail.push(task);
-        }
-        return [pass, fail];
-      },
-      [[], []]
-    );
-
-    const { has_date, no_date } = Tasks.dateSplit(tasks);
-
-    return { tasks, wip, week, month, non_wip, has_date, no_date };
-  }
-
   static tasksBy_PriorityDate(tasks: Task[]): Task[] {
     return _.sortBy((t: Task) => t.dates.priority()?.date, tasks);
-  }
-
-  static tasksBy_Status(tasks: Task[]): Task[] {
-    return _.sortBy((t: Task) => {
-      return Data.statusRank[t.data.status];
-    }, tasks);
   }
 
   static tasksBy_Project(tasks: Task[]): Task[] {

@@ -22,6 +22,47 @@ import env from "./config.json";
 import * as m from "./model";
 import * as vm from "./viewmodel";
 
+const SECTION_LAYOUT_STORAGE_KEY = "gtd.sectionLayout.v1";
+
+type SectionLayoutV1 = {
+  order: string[];
+  hidden: string[];
+};
+
+function loadSectionLayoutV1(): SectionLayoutV1 {
+  try {
+    const raw = localStorage.getItem(SECTION_LAYOUT_STORAGE_KEY);
+    if (!raw) {
+      return { order: [], hidden: [] };
+    }
+    const p = JSON.parse(raw) as unknown;
+    if (!p || typeof p !== "object") {
+      return { order: [], hidden: [] };
+    }
+    const rec = p as SectionLayoutV1;
+    const order = Array.isArray(rec.order)
+      ? rec.order.filter((x): x is string => typeof x === "string")
+      : [];
+    const hidden = Array.isArray(rec.hidden)
+      ? rec.hidden.filter((x): x is string => typeof x === "string")
+      : [];
+    return { order, hidden };
+  } catch {
+    return { order: [], hidden: [] };
+  }
+}
+
+function saveSectionLayoutV1(order: string[], hidden: Set<string>): void {
+  try {
+    localStorage.setItem(
+      SECTION_LAYOUT_STORAGE_KEY,
+      JSON.stringify({ order, hidden: [...hidden] })
+    );
+  } catch {
+    /* quota / private mode */
+  }
+}
+
 type TaskGroupBy = "Project" | "Tags"
 
 function getToday(): Date {
@@ -332,19 +373,42 @@ function App() {
   let [gtdTasks, setTasks] = useState<m.Tasks>(m.Tasks.empty());
   let [visibleDate, setVisibleDate] = useState<Date | undefined>(getToday());
   let [groupBy, setGroupBy] = useState<TaskGroupBy>("Project");
-  let [visibleSections, setVisibleSections] = useState<Set<string>>(new Set());
+  let [sectionOrder, setSectionOrder] = useState<string[]>(
+    () => loadSectionLayoutV1().order
+  );
+  let [sectionHidden, setSectionHidden] = useState<Set<string>>(() => {
+    const { hidden } = loadSectionLayoutV1();
+    return new Set(hidden);
+  });
   let [sectionDropdownOpen, setSectionDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const prevSectionIdsRef = useRef<Set<string>>(new Set());
+  const sectionDragSourceRef = useRef<string | null>(null);
 
   function flipGroupBy() {
     setGroupBy((g) => (g === "Project" ? "Tags" : "Project"));
   }
 
-  function toggleSection(id: string) {
-    setVisibleSections((prev) => {
+  function toggleSectionVisibility(id: string) {
+    setSectionHidden((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function moveSectionOrder(dragId: string, targetId: string) {
+    if (dragId === targetId) {
+      return;
+    }
+    setSectionOrder((prev) => {
+      const next = [...prev];
+      const i = next.indexOf(dragId);
+      const j = next.indexOf(targetId);
+      if (i < 0 || j < 0) {
+        return prev;
+      }
+      next.splice(i, 1);
+      next.splice(j, 0, dragId);
       return next;
     });
   }
@@ -431,57 +495,68 @@ function App() {
     return _.uniq(tasks.map((t) => t.data.status));
   }, [gtdTasks, projectFilter, contextFilter]);
 
-  const sectionIds = useMemo(
-    () => m.Tasks.discoverLeftPaneSectionIds(discoveryStatuses),
-    [discoveryStatuses]
-  );
-
-  const sectionDescriptors = useMemo(
-    () =>
-      sectionIds.map((id) => ({
-        id,
-        label: m.Tasks.leftPaneSectionLabel(id),
-      })),
-    [sectionIds]
-  );
-
   useEffect(() => {
-    const allowed = new Set(sectionIds);
-    const prevAllowed = prevSectionIdsRef.current;
-    setVisibleSections((prev) => {
-      const next = new Set<string>();
-      for (const id of allowed) {
-        if (!prevAllowed.has(id) || prev.has(id)) {
-          next.add(id);
+    if (discoveryStatuses.length === 0) {
+      return;
+    }
+    const discSet = new Set(discoveryStatuses);
+    setSectionOrder((prev) => {
+      const pruned = prev.filter((id) => discSet.has(id));
+      const seen = new Set(pruned);
+      for (const id of discoveryStatuses) {
+        if (!seen.has(id)) {
+          pruned.push(id);
+          seen.add(id);
+        }
+      }
+      return pruned;
+    });
+    setSectionHidden((prev) => {
+      const next = new Set(prev);
+      for (const id of prev) {
+        if (!discSet.has(id)) {
+          next.delete(id);
         }
       }
       return next;
     });
-    prevSectionIdsRef.current = allowed;
-  }, [sectionIds]);
+  }, [discoveryStatuses]);
 
-  const filteredVisibleTasks = gtdTasks
-    .filter_by_project(projectFilter)
-    .filter_by_context(contextFilter)
-    .filter_by_visibility(visibleDate).tasks;
+  useEffect(() => {
+    saveSectionLayoutV1(sectionOrder, sectionHidden);
+  }, [sectionOrder, sectionHidden]);
 
-  const { wip, week, month, has_date, no_date } =
-    m.Tasks.subdivide(filteredVisibleTasks);
-  const todoSplit = m.Tasks.statusSplit(["Todo"], no_date);
-  const noStatusSplit = m.Tasks.statusSplit(["NoStatus"], todoSplit.other_status);
+  const discSet = useMemo(() => new Set(discoveryStatuses), [discoveryStatuses]);
+
+  const sectionDescriptors = useMemo(
+    () =>
+      sectionOrder
+        .filter((id) => discSet.has(id))
+        .map((id) => ({ id, label: id })),
+    [sectionOrder, discSet]
+  );
+
+  const sectionVisible = (id: string) => !sectionHidden.has(id);
+
+  const filteredVisibleTasks = useMemo(
+    () =>
+      gtdTasks
+        .filter_by_project(projectFilter)
+        .filter_by_context(contextFilter)
+        .filter_by_visibility(visibleDate).tasks,
+    [gtdTasks, projectFilter, contextFilter, visibleDate]
+  );
+
+  const visibleTasksByStatus = useMemo(
+    () => _.groupBy((t: m.Task) => t.data.status)(filteredVisibleTasks),
+    [filteredVisibleTasks]
+  );
+
+  const { has_date } = m.Tasks.dateSplit(filteredVisibleTasks);
   const withMeta = m.Tasks.addMetaTasks(has_date);
   const week_blocks = vm.WeekBlock.fromTasks(withMeta);
 
-  const leftPaneBuckets = {
-    wip,
-    week,
-    month,
-    todo: todoSplit.has_status,
-    backlog: noStatusSplit.has_status,
-    visibleTasks: filteredVisibleTasks,
-  };
-
-  const show = (id: string) => visibleSections.has(id);
+  const show = (id: string) => sectionVisible(id);
 
   return (
     <div className="App">
@@ -517,9 +592,51 @@ function App() {
           {sectionDropdownOpen && (
             <div className="DropdownPanel">
               {sectionDescriptors.map(({ id, label }) => (
-                <div key={id} className="DropdownItem" onClick={() => toggleSection(id)}>
-                  <span className="DropdownCheck">{visibleSections.has(id) ? "×" : " "}</span>
-                  {label}
+                <div
+                  key={id}
+                  className="DropdownItem"
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const from = sectionDragSourceRef.current;
+                    sectionDragSourceRef.current = null;
+                    if (from) {
+                      moveSectionOrder(from, id);
+                    }
+                  }}
+                >
+                  <span
+                    className="DropdownDragHandle DropdownDragHandleDraggable"
+                    draggable
+                    title="Drag to reorder"
+                    onDragStart={(e) => {
+                      sectionDragSourceRef.current = id;
+                      e.dataTransfer.effectAllowed = "move";
+                      e.dataTransfer.setData("text/plain", id);
+                    }}
+                    onDragEnd={() => {
+                      sectionDragSourceRef.current = null;
+                    }}
+                  >
+                    ⋮⋮
+                  </span>
+                  <button
+                    type="button"
+                    className="DropdownCheck"
+                    onClick={() => toggleSectionVisibility(id)}
+                    aria-pressed={sectionVisible(id)}
+                    aria-label={
+                      sectionVisible(id)
+                        ? `Hide ${label} section`
+                        : `Show ${label} section`
+                    }
+                  >
+                    {sectionVisible(id) ? "×" : "○"}
+                  </button>
+                  <span className="DropdownLabel">{label}</span>
                 </div>
               ))}
             </div>
@@ -531,11 +648,11 @@ function App() {
         <div className="LeftPane">
           {sectionDescriptors.map(({ id, label }) =>
             show(id) ? (
-              <div key={id}>
+              <div key={id} className="LeftPaneSection">
                 <h2>{label}</h2>
                 <NoScheduleBlock
-                  tasks={m.Tasks.tasksBy_Status(
-                    m.Tasks.leftPaneSectionTasks(id, leftPaneBuckets)
+                  tasks={m.Tasks.tasksBy_PriorityDate(
+                    visibleTasksByStatus[id] ?? []
                   )}
                   groupby={groupBy}
                 />
