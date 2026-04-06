@@ -27,17 +27,18 @@ const SECTION_LAYOUT_STORAGE_KEY = "gtd.sectionLayout.v1";
 type SectionLayoutV1 = {
   order: string[];
   hidden: string[];
+  isolate?: string | null;
 };
 
 function loadSectionLayoutV1(): SectionLayoutV1 {
   try {
     const raw = localStorage.getItem(SECTION_LAYOUT_STORAGE_KEY);
     if (!raw) {
-      return { order: [], hidden: [] };
+      return { order: [], hidden: [], isolate: null };
     }
     const p = JSON.parse(raw) as unknown;
     if (!p || typeof p !== "object") {
-      return { order: [], hidden: [] };
+      return { order: [], hidden: [], isolate: null };
     }
     const rec = p as SectionLayoutV1;
     const order = Array.isArray(rec.order)
@@ -46,17 +47,77 @@ function loadSectionLayoutV1(): SectionLayoutV1 {
     const hidden = Array.isArray(rec.hidden)
       ? rec.hidden.filter((x): x is string => typeof x === "string")
       : [];
-    return { order, hidden };
+    const isolate = typeof rec.isolate === "string" ? rec.isolate : null;
+    return { order, hidden, isolate };
   } catch {
-    return { order: [], hidden: [] };
+    return { order: [], hidden: [], isolate: null };
   }
 }
 
-function saveSectionLayoutV1(order: string[], hidden: Set<string>): void {
+function saveSectionLayoutV1(
+  order: string[],
+  hidden: Set<string>,
+  isolate: string | null
+): void {
   try {
     localStorage.setItem(
       SECTION_LAYOUT_STORAGE_KEY,
-      JSON.stringify({ order, hidden: [...hidden] })
+      JSON.stringify({
+        order,
+        hidden: [...hidden],
+        isolate,
+      })
+    );
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+const TAG_LAYOUT_STORAGE_KEY = "gtd.tagLayout.v1";
+
+type TagLayoutV1 = {
+  order: string[];
+  hidden: string[];
+  isolate?: string | null;
+};
+
+function loadTagLayoutV1(): TagLayoutV1 {
+  try {
+    const raw = localStorage.getItem(TAG_LAYOUT_STORAGE_KEY);
+    if (!raw) {
+      return { order: [], hidden: [], isolate: null };
+    }
+    const p = JSON.parse(raw) as unknown;
+    if (!p || typeof p !== "object") {
+      return { order: [], hidden: [], isolate: null };
+    }
+    const rec = p as TagLayoutV1;
+    const order = Array.isArray(rec.order)
+      ? rec.order.filter((x): x is string => typeof x === "string")
+      : [];
+    const hidden = Array.isArray(rec.hidden)
+      ? rec.hidden.filter((x): x is string => typeof x === "string")
+      : [];
+    const isolate = typeof rec.isolate === "string" ? rec.isolate : null;
+    return { order, hidden, isolate };
+  } catch {
+    return { order: [], hidden: [], isolate: null };
+  }
+}
+
+function saveTagLayoutV1(
+  order: string[],
+  hidden: Set<string>,
+  isolate: string | null
+): void {
+  try {
+    localStorage.setItem(
+      TAG_LAYOUT_STORAGE_KEY,
+      JSON.stringify({
+        order,
+        hidden: [...hidden],
+        isolate,
+      })
     );
   } catch {
     /* quota / private mode */
@@ -64,6 +125,34 @@ function saveSectionLayoutV1(order: string[], hidden: Set<string>): void {
 }
 
 type TaskGroupBy = "Project" | "Tags"
+
+/** Tag bucket ids aligned with `Task.explodeByContext` / TasksByTag (`none` = untagged). */
+function taskTagGroupKeys(task: m.Task): string[] {
+  if (task.data.contexts.length === 0) {
+    return ["none"];
+  }
+  return task.cleanContexts();
+}
+
+/** Left-pane tag rules: optional isolate (solo one tag); else hide-only-hidden buckets. */
+function filterTasksForLeftPaneTagMenu(
+  tasks: m.Task[],
+  tagHidden: Set<string>,
+  tagIsolated: string | null
+): m.Task[] {
+  if (tagIsolated !== null) {
+    return tasks.filter((task) =>
+      taskTagGroupKeys(task).includes(tagIsolated)
+    );
+  }
+  if (tagHidden.size === 0) {
+    return tasks;
+  }
+  return tasks.filter((task) => {
+    const keys = taskTagGroupKeys(task);
+    return keys.some((k) => !tagHidden.has(k));
+  });
+}
 
 function getToday(): Date {
   return new Date();
@@ -197,22 +286,53 @@ function ContextBlock(props: { context: string; tasks: m.Task[] }) {
   );
 }
 
-function TasksByGroup(props: { tasks: m.Task[], groupby: TaskGroupBy }) {
-  return (
-    props.groupby === "Project" ? <TasksByProject tasks={props.tasks} /> : <TasksByTag tasks={props.tasks} />
-  )
+function TasksByGroup(props: {
+  tasks: m.Task[];
+  groupby: TaskGroupBy;
+  tagDescriptors: { id: string }[];
+  tagVisible: (id: string) => boolean;
+}) {
+  return props.groupby === "Project" ? (
+    <TasksByProject tasks={props.tasks} />
+  ) : (
+    <TasksByTag
+      tasks={props.tasks}
+      tagDescriptors={props.tagDescriptors}
+      tagVisible={props.tagVisible}
+    />
+  );
 }
 
-function TasksByTag(props: { tasks: m.Task[] }) {
-  const groups = _.groupBy((t: m.Task) => t.data.single_context)(props.tasks.flatMap(t => t.explodeByContext()));
+function TasksByTag(props: {
+  tasks: m.Task[];
+  tagDescriptors: { id: string }[];
+  tagVisible: (id: string) => boolean;
+}) {
+  const groups = _.groupBy((t: m.Task) => t.data.single_context)(
+    props.tasks.flatMap((t) => t.explodeByContext())
+  );
+  const present = new Set(Object.keys(groups));
+  const orderedIds = [
+    ...props.tagDescriptors.map((d) => d.id).filter((id) => present.has(id)),
+    ...[...present].filter(
+      (id) => !props.tagDescriptors.some((d) => d.id === id)
+    ),
+  ];
   return (
     <div>
-      {Object.entries(groups).map((entry) => {
+      {orderedIds.map((id) => {
+        if (!props.tagVisible(id)) {
+          return null;
+        }
+        const blockTasks = groups[id];
+        if (!blockTasks?.length) {
+          return null;
+        }
         return (
           <ContextBlock
-            key={entry[0]}
-            context={entry[0]}
-            tasks={entry[1]}
+            key={id}
+            context={id}
+            tasks={blockTasks}
           ></ContextBlock>
         );
       })}
@@ -284,7 +404,12 @@ function WeekBlocks(props: { week_blocks: vm.WeekBlock[] }) {
   );
 }
 
-function NoScheduleBlock(props: { tasks: m.Task[], groupby: TaskGroupBy }) {
+function NoScheduleBlock(props: {
+  tasks: m.Task[];
+  groupby: TaskGroupBy;
+  tagDescriptors: { id: string }[];
+  tagVisible: (id: string) => boolean;
+}) {
   const { has_date, no_date } = m.Tasks.dateSplit(props.tasks);
   function NoScheduleTask(props: { task: m.Task }) {
     const dispatch = useAppDispatch();
@@ -325,7 +450,12 @@ function NoScheduleBlock(props: { tasks: m.Task[], groupby: TaskGroupBy }) {
           return <NoScheduleTask key={task.key()} task={task}></NoScheduleTask>;
         })}
       </div>
-      <TasksByGroup tasks={no_date} groupby={props.groupby}></TasksByGroup>
+      <TasksByGroup
+        tasks={no_date}
+        groupby={props.groupby}
+        tagDescriptors={props.tagDescriptors}
+        tagVisible={props.tagVisible}
+      ></TasksByGroup>
     </div>
   );
 }
@@ -380,9 +510,23 @@ function App() {
     const { hidden } = loadSectionLayoutV1();
     return new Set(hidden);
   });
+  let [sectionIsolated, setSectionIsolated] = useState<string | null>(
+    () => loadSectionLayoutV1().isolate ?? null
+  );
   let [sectionDropdownOpen, setSectionDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  let [tagDropdownOpen, setTagDropdownOpen] = useState(false);
+  const sectionDropdownRef = useRef<HTMLDivElement>(null);
+  const tagDropdownRef = useRef<HTMLDivElement>(null);
   const sectionDragSourceRef = useRef<string | null>(null);
+  const tagDragSourceRef = useRef<string | null>(null);
+  let [tagOrder, setTagOrder] = useState<string[]>(() => loadTagLayoutV1().order);
+  let [tagHidden, setTagHidden] = useState<Set<string>>(() => {
+    const { hidden } = loadTagLayoutV1();
+    return new Set(hidden);
+  });
+  let [tagIsolated, setTagIsolated] = useState<string | null>(
+    () => loadTagLayoutV1().isolate ?? null
+  );
 
   function flipGroupBy() {
     setGroupBy((g) => (g === "Project" ? "Tags" : "Project"));
@@ -396,11 +540,44 @@ function App() {
     });
   }
 
+  function toggleSectionIsolate(id: string) {
+    setSectionIsolated((prev) => (prev === id ? null : id));
+  }
+
+  function toggleTagIsolate(id: string) {
+    setTagIsolated((prev) => (prev === id ? null : id));
+  }
+
   function moveSectionOrder(dragId: string, targetId: string) {
     if (dragId === targetId) {
       return;
     }
     setSectionOrder((prev) => {
+      const next = [...prev];
+      const i = next.indexOf(dragId);
+      const j = next.indexOf(targetId);
+      if (i < 0 || j < 0) {
+        return prev;
+      }
+      next.splice(i, 1);
+      next.splice(j, 0, dragId);
+      return next;
+    });
+  }
+
+  function toggleTagVisibility(id: string) {
+    setTagHidden((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function moveTagOrder(dragId: string, targetId: string) {
+    if (dragId === targetId) {
+      return;
+    }
+    setTagOrder((prev) => {
       const next = [...prev];
       const i = next.indexOf(dragId);
       const j = next.indexOf(targetId);
@@ -460,12 +637,18 @@ function App() {
     return () => clearInterval(intervalId);
   }, []);
 
-  // Close section dropdown when clicking outside
+  // Close toolbar dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setSectionDropdownOpen(false);
+      const t = e.target as Node;
+      if (sectionDropdownRef.current?.contains(t)) {
+        return;
       }
+      if (tagDropdownRef.current?.contains(t)) {
+        return;
+      }
+      setSectionDropdownOpen(false);
+      setTagDropdownOpen(false);
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -520,11 +703,14 @@ function App() {
       }
       return next;
     });
+    setSectionIsolated((prev) =>
+      prev !== null && !discSet.has(prev) ? null : prev
+    );
   }, [discoveryStatuses]);
 
   useEffect(() => {
-    saveSectionLayoutV1(sectionOrder, sectionHidden);
-  }, [sectionOrder, sectionHidden]);
+    saveSectionLayoutV1(sectionOrder, sectionHidden, sectionIsolated);
+  }, [sectionOrder, sectionHidden, sectionIsolated]);
 
   const discSet = useMemo(() => new Set(discoveryStatuses), [discoveryStatuses]);
 
@@ -536,7 +722,64 @@ function App() {
     [sectionOrder, discSet]
   );
 
-  const sectionVisible = (id: string) => !sectionHidden.has(id);
+  const discoveryContexts = useMemo(() => {
+    const tasks = gtdTasks.filter_by_project(projectFilter).tasks;
+    return _.uniq(
+      tasks.flatMap((t) =>
+        t.explodeByContext().map((x) => x.data.single_context ?? "")
+      )
+    ).filter((id) => id.length > 0);
+  }, [gtdTasks, projectFilter]);
+
+  useEffect(() => {
+    if (discoveryContexts.length === 0) {
+      return;
+    }
+    const discCtx = new Set(discoveryContexts);
+    setTagOrder((prev) => {
+      const pruned = prev.filter((id) => discCtx.has(id));
+      const seen = new Set(pruned);
+      for (const id of discoveryContexts) {
+        if (!seen.has(id)) {
+          pruned.push(id);
+          seen.add(id);
+        }
+      }
+      return pruned;
+    });
+    setTagHidden((prev) => {
+      const next = new Set(prev);
+      for (const id of prev) {
+        if (!discCtx.has(id)) {
+          next.delete(id);
+        }
+      }
+      return next;
+    });
+    setTagIsolated((prev) =>
+      prev !== null && !discCtx.has(prev) ? null : prev
+    );
+  }, [discoveryContexts]);
+
+  useEffect(() => {
+    saveTagLayoutV1(tagOrder, tagHidden, tagIsolated);
+  }, [tagOrder, tagHidden, tagIsolated]);
+
+  const tagDiscSet = useMemo(
+    () => new Set(discoveryContexts),
+    [discoveryContexts]
+  );
+
+  const tagDescriptors = useMemo(
+    () =>
+      tagOrder.filter((id) => tagDiscSet.has(id)).map((id) => ({ id })),
+    [tagOrder, tagDiscSet]
+  );
+
+  const effectiveSectionVisible = (id: string) =>
+    sectionIsolated !== null ? id === sectionIsolated : !sectionHidden.has(id);
+  const effectiveTagVisible = (id: string) =>
+    tagIsolated !== null ? id === tagIsolated : !tagHidden.has(id);
 
   const filteredVisibleTasks = useMemo(
     () =>
@@ -547,16 +790,26 @@ function App() {
     [gtdTasks, projectFilter, contextFilter, visibleDate]
   );
 
+  const leftPaneTasks = useMemo(
+    () =>
+      filterTasksForLeftPaneTagMenu(
+        filteredVisibleTasks,
+        tagHidden,
+        tagIsolated
+      ),
+    [filteredVisibleTasks, tagHidden, tagIsolated]
+  );
+
   const visibleTasksByStatus = useMemo(
-    () => _.groupBy((t: m.Task) => t.data.status)(filteredVisibleTasks),
-    [filteredVisibleTasks]
+    () => _.groupBy((t: m.Task) => t.data.status)(leftPaneTasks),
+    [leftPaneTasks]
   );
 
   const { has_date } = m.Tasks.dateSplit(filteredVisibleTasks);
   const withMeta = m.Tasks.addMetaTasks(has_date);
   const week_blocks = vm.WeekBlock.fromTasks(withMeta);
 
-  const show = (id: string) => sectionVisible(id);
+  const show = (id: string) => effectiveSectionVisible(id);
 
   return (
     <div className="App">
@@ -585,7 +838,7 @@ function App() {
 
         <span className="ToolbarSep">|</span>
 
-        <div className="ToolbarDropdown" ref={dropdownRef}>
+        <div className="ToolbarDropdown" ref={sectionDropdownRef}>
           <button onClick={() => setSectionDropdownOpen((o) => !o)}>
             Sections {sectionDropdownOpen ? "▴" : "▾"}
           </button>
@@ -625,18 +878,100 @@ function App() {
                   </span>
                   <button
                     type="button"
+                    className={`DropdownSolo${
+                      sectionIsolated === id ? " DropdownSoloActive" : ""
+                    }`}
+                    onClick={() => toggleSectionIsolate(id)}
+                    title="Isolate — show only this section (click again to clear)"
+                    aria-pressed={sectionIsolated === id}
+                    aria-label={`Isolate section ${label}`}
+                  >
+                    S
+                  </button>
+                  <button
+                    type="button"
                     className="DropdownCheck"
                     onClick={() => toggleSectionVisibility(id)}
-                    aria-pressed={sectionVisible(id)}
+                    aria-pressed={effectiveSectionVisible(id)}
                     aria-label={
-                      sectionVisible(id)
+                      effectiveSectionVisible(id)
                         ? `Hide ${label} section`
                         : `Show ${label} section`
                     }
                   >
-                    {sectionVisible(id) ? "×" : "○"}
+                    {effectiveSectionVisible(id) ? "×" : "○"}
                   </button>
                   <span className="DropdownLabel">{label}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="ToolbarDropdown" ref={tagDropdownRef}>
+          <button onClick={() => setTagDropdownOpen((o) => !o)}>
+            Tags {tagDropdownOpen ? "▴" : "▾"}
+          </button>
+          {tagDropdownOpen && (
+            <div className="DropdownPanel">
+              {tagDescriptors.map(({ id }) => (
+                <div
+                  key={id}
+                  className="DropdownItem"
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const from = tagDragSourceRef.current;
+                    tagDragSourceRef.current = null;
+                    if (from) {
+                      moveTagOrder(from, id);
+                    }
+                  }}
+                >
+                  <span
+                    className="DropdownDragHandle DropdownDragHandleDraggable"
+                    draggable
+                    title="Drag to reorder"
+                    onDragStart={(e) => {
+                      tagDragSourceRef.current = id;
+                      e.dataTransfer.effectAllowed = "move";
+                      e.dataTransfer.setData("text/plain", id);
+                    }}
+                    onDragEnd={() => {
+                      tagDragSourceRef.current = null;
+                    }}
+                  >
+                    ⋮⋮
+                  </span>
+                  <button
+                    type="button"
+                    className={`DropdownSolo${
+                      tagIsolated === id ? " DropdownSoloActive" : ""
+                    }`}
+                    onClick={() => toggleTagIsolate(id)}
+                    title="Isolate — show only this tag (click again to clear)"
+                    aria-pressed={tagIsolated === id}
+                    aria-label={`Isolate tag ${id}`}
+                  >
+                    S
+                  </button>
+                  <button
+                    type="button"
+                    className="DropdownCheck"
+                    onClick={() => toggleTagVisibility(id)}
+                    aria-pressed={effectiveTagVisible(id)}
+                    aria-label={
+                      effectiveTagVisible(id)
+                        ? `Hide tasks grouped under tag ${id}`
+                        : `Show tasks grouped under tag ${id}`
+                    }
+                  >
+                    {effectiveTagVisible(id) ? "×" : "○"}
+                  </button>
+                  <span className="DropdownLabel">{id}</span>
                 </div>
               ))}
             </div>
@@ -655,6 +990,8 @@ function App() {
                     visibleTasksByStatus[id] ?? []
                   )}
                   groupby={groupBy}
+                  tagDescriptors={tagDescriptors}
+                  tagVisible={effectiveTagVisible}
                 />
               </div>
             ) : null
