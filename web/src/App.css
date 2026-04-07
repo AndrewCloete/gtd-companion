@@ -55,6 +55,17 @@
   padding-bottom: 1.1rem;
 }
 
+/* LHS: light row rhythm; dotted rule only between project/tag groups (not NoSchedule rows). */
+.LeftPane .TaskNavRow {
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+.LeftPane .TaskLine:not(.TaskNavRow) + .TaskLine:not(.TaskNavRow) {
+  margin-top: 0.2rem;
+  padding-top: 0.28rem;
+  border-top: 1px dotted var(--darker);
+}
+
 .TaskNavFocused {
   outline: 1px solid var(--info);
   outline-offset: 2px;
