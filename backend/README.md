@@ -14,10 +14,10 @@ Also, this project serves as an excuse to improve my comfor with Rust.
 ## Local testing
 Easiest is to:
 ```sh
-cp ~/.gtd.json ~/.gtd.test.json
+cp ~/.gtd.toml ~/.gtd.test.toml
 ```
 then update the `test` config to be shorter to parse and update the
-`default_config_name` in `main.rs`, and run:
+`default_config_name` in `model.rs`, and run:
 ```sh
 cargo run --bin gtd-server
 cargo run --bin gtd-cli -- -w true

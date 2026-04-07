@@ -18,11 +18,11 @@ struct Args {
     #[arg(short, long, value_hint = clap::ValueHint::DirPath)]
     dir: Option<std::path::PathBuf>,
 
-    /// Task status todo, wip, or review
+    /// Task status label, e.g. todo, wip, review, or any custom @-tag
     #[arg(short, long)]
     status: Option<String>,
 
-    /// Not task status todo, wip, or review
+    /// Exclude tasks with this status label
     #[arg(short = 'S', long)]
     not_status: Option<String>,
 
@@ -48,10 +48,15 @@ impl Args {
     pub fn parse_status_arg(status: &Option<String>) -> Vec<TaskStatus> {
         status
             .clone()
-            .map(|status| {
-                status
-                    .split(",")
-                    .map(|s| TaskStatus::classify(&format!("@{}", s)))
+            .map(|s| {
+                s.split(",")
+                    .map(|key| {
+                        if key == "noStatus" {
+                            TaskStatus::NoStatus
+                        } else {
+                            TaskStatus::Status(key.to_string())
+                        }
+                    })
                     .collect()
             })
             .unwrap_or(vec![])
@@ -92,12 +97,11 @@ fn display_projects(projects: &Vec<Project>) {
     for proj in projects {
         let proj_line = format!("-- {} --", proj.file_name);
         println!("{}", proj_line.on_blue());
-        for status in TaskStatus::all() {
-            if !proj.tasks.contains_key(&status) {
-                continue;
-            }
+        let mut statuses: Vec<&TaskStatus> = proj.tasks.keys().collect();
+        statuses.sort_by_key(|s| s.to_string());
+        for status in statuses {
             println!("{}", status.to_color_str().dimmed());
-            for task in proj.tasks.get(&status).unwrap() {
+            for task in proj.tasks.get(status).unwrap() {
                 println!("{}", task)
             }
         }
@@ -182,6 +186,8 @@ fn main() {
         _ => vec![],
     };
 
+    let configured_statuses: Vec<String> = config.statuses.unwrap_or(vec![]);
+
     let file_paths = dirs.iter().flat_map(|dir| {
         WalkDir::new(dir.as_path())
             .into_iter()
@@ -191,7 +197,7 @@ fn main() {
             .filter(|e| !ignore_files.contains(&e.file_name().to_str().unwrap_or("").to_string()))
     });
 
-    let re = Task::re_any();
+    let re = Task::re_any(&configured_statuses);
 
     let projects: Vec<Project> = file_paths
         .flat_map(|file_path| {
@@ -209,7 +215,7 @@ fn main() {
 
             let first_line = task_lines.first().map(|(_, l)| l.clone()).unwrap_or("".into());
             let gtd_task = if first_line.starts_with("- @gtd") {
-                Some(Task::from(&first_line, &file_name, None, None))
+                Some(Task::from(&first_line, &file_name, None, None, &configured_statuses))
             } else {
                 None
             };
@@ -220,7 +226,7 @@ fn main() {
                     .iter()
                     .filter(|(_, l)| !l.starts_with("- @gtd"))
                     .map(|(line_num, l)| {
-                        let mut t = Task::from(&l, &file_name, Some(full_path.clone()), Some(*line_num));
+                        let mut t = Task::from(&l, &file_name, Some(full_path.clone()), Some(*line_num), &configured_statuses);
                         if t.status == TaskStatus::NoStatus {
                             // Replace NoStatus with GTD task status
                             t.status = gt.status.clone();
@@ -257,7 +263,7 @@ fn main() {
                 task_lines
                     .iter()
                     .filter(|(_, line)| re.is_match(line))
-                    .map(|(line_num, l)| Task::from(&l, &file_name, Some(full_path.clone()), Some(*line_num)))
+                    .map(|(line_num, l)| Task::from(&l, &file_name, Some(full_path.clone()), Some(*line_num), &configured_statuses))
                     .filter(|task| !task.has_noflags())
                     .filter(|task| statuses.is_empty() || statuses.contains(&task.status))
                     .filter(|task| {
@@ -282,7 +288,7 @@ fn main() {
                 |mut map: HashMap<TaskStatus, Vec<Task>>, task| {
                     let mut value: Vec<Task> = map.get(&task.status).unwrap_or(&vec![]).to_vec();
                     value.push(task.clone());
-                    map.insert(task.status, value);
+                    map.insert(task.status.clone(), value);
                     map
                 },
             );
@@ -314,10 +320,6 @@ fn main() {
             .post(url)
             .body(tasks_string)
             .header("Content-Type", "application/json")
-            .header(
-                "Authorization",
-                "Basic ".to_owned() + &server_cnf.basic_token(),
-            )
             .send()
             .unwrap();
         println!("{:?}", res.text());

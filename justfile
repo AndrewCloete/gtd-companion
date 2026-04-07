@@ -59,7 +59,7 @@ dev:
     @echo "  just web       # start the web dev server"
     @echo "  just refresh-demo-dates   # slide demo date tokens to today (see demo-vault/.gtd-date-anchor)"
     @echo "  just scan-demo            # push tasks from demo-vault/"
-    @echo "  just scan      # same, but uses dirs from ~/.gtd.json default_dirs"
+    @echo "  just scan      # same, but uses dirs from ~/.gtd.toml default_dirs"
 
 # ── Docker ────────────────────────────────────────────────────────────────────
 

@@ -208,7 +208,7 @@ button:active {
     font-style: italic;
   }
 
-  .Status_Todo {
+  .Status_todo {
     color: var(--info);
   }
 

@@ -1,4 +1,3 @@
-use base64::{engine::general_purpose, Engine as _};
 use colored::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -9,15 +8,6 @@ use std::str::FromStr;
 #[derive(Debug, Deserialize, Clone)]
 pub struct ServerConfig {
     pub host: String,
-    user: String,
-    psw: String,
-}
-
-impl ServerConfig {
-    pub fn basic_token(&self) -> String {
-        let merge = format!("{}:{}", &self.user, &self.psw);
-        general_purpose::URL_SAFE.encode(merge)
-    }
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -26,6 +16,10 @@ pub struct ConfigFile {
     pub inbox_path: Option<String>,
     pub ignore_files: Option<Vec<String>>,
     pub default_not_context: Option<Vec<String>>,
+    /// Explicit list of status keys (without `@`) that the parser should recognise,
+    /// e.g. `["todo", "wip", "review"]`.  Only tokens in this list are treated as
+    /// status tags; everything else is left in the task description.
+    pub statuses: Option<Vec<String>>,
     pub server: Option<ServerConfig>,
 }
 
@@ -36,99 +30,125 @@ impl ConfigFile {
             inbox_path: None,
             ignore_files: None,
             default_not_context: None,
+            statuses: None,
             server: None,
         };
     }
 
     pub fn read() -> ConfigFile {
-        let default_config_name = ".gtd.json";
+        let default_config_name = ".gtd.toml";
         let home_path = var("HOME").expect("$HOME not defined");
         match fs::read_to_string(format!("{}/{}", home_path, default_config_name)) {
             Err(_) => ConfigFile::new(),
-            Ok(content) => serde_json::from_str(&content).expect("Config was not well formatted"),
+            Ok(content) => toml::from_str(&content).expect("Config was not well formatted"),
         }
     }
 }
 
 use regex::Regex;
-#[derive(Copy, Serialize, Deserialize, Clone, PartialEq, Eq, Debug, Hash)]
+
+/// A task status derived from an `@word` token in a markdown bullet.
+/// `NoStatus` means no status token was present (or `@noStatus` was explicit).
+/// `Status(key)` holds the word after `@` exactly as written, e.g. `"todo"`, `"wip"`, or any
+/// custom label like `"waiting"`.
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub enum TaskStatus {
     NoStatus,
-    Todo,
-    Wip,
-    Review,
-    Week,
-    Month,
+    Status(String),
+}
+
+impl serde::Serialize for TaskStatus {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        match self {
+            TaskStatus::NoStatus => s.serialize_str("NoStatus"),
+            TaskStatus::Status(key) => s.serialize_str(key),
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for TaskStatus {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let raw = String::deserialize(d)?;
+        Ok(TaskStatus::from_str(&raw).unwrap_or(TaskStatus::Status(raw)))
+    }
 }
 
 impl TaskStatus {
-    fn re_status() -> Regex {
-        Regex::new(r"(@todo|@wip|@review|@week|@month)").unwrap()
+    /// Builds a regex that matches only the status tokens declared in `statuses`
+    /// plus the special `@noStatus` sentinel.
+    /// Keys are stored without the leading `@`; they are expected to be
+    /// simple alphanumeric words (no escaping needed).
+    fn re_status(statuses: &[String]) -> Option<Regex> {
+        let mut keys = statuses.to_vec();
+        if !keys.contains(&"noStatus".to_string()) {
+            keys.push("noStatus".to_string());
+        }
+        // If the caller provided no statuses, the only thing we can match is
+        // the explicit `@noStatus` reset token — still useful.
+        let pattern = keys
+            .iter()
+            .map(|k| format!("@({})", k))
+            .collect::<Vec<_>>()
+            .join("|");
+        Regex::new(&pattern).ok()
     }
-    pub fn remove_status_str(task: &str) -> String {
-        let no_status = TaskStatus::re_status().replace_all(task, "").to_string();
+
+    pub fn remove_status_str(task: &str, statuses: &[String]) -> String {
+        let Some(re) = TaskStatus::re_status(statuses) else {
+            return task.to_string();
+        };
+        let no_status = re.replace_all(task, "").to_string();
         Regex::new(r"\s+")
             .unwrap()
             .replace_all(&no_status, " ")
             .to_string()
     }
-    pub fn classify(task: &str) -> TaskStatus {
-        let status_str: Option<&str> = TaskStatus::re_status()
-            .captures(task)
-            .map(|cap| cap.get(0).unwrap().as_str());
 
-        status_str
-            .map(|s| TaskStatus::from_str(s).unwrap())
+    pub fn classify(task: &str, statuses: &[String]) -> TaskStatus {
+        let Some(re) = TaskStatus::re_status(statuses) else {
+            return TaskStatus::NoStatus;
+        };
+        re.captures(task)
+            .and_then(|cap| cap.get(0))
+            .map(|m| {
+                // The full match is the token, e.g. `@todo`
+                let token = m.as_str();
+                TaskStatus::from_str(token).unwrap_or(TaskStatus::NoStatus)
+            })
             .unwrap_or(TaskStatus::NoStatus)
-    }
-    pub fn all() -> Vec<TaskStatus> {
-        return vec![
-            TaskStatus::Wip,
-            TaskStatus::Review,
-            TaskStatus::Todo,
-            TaskStatus::NoStatus,
-            TaskStatus::Week,
-            TaskStatus::Month,
-        ];
     }
 
     pub fn to_color_str(&self) -> ColoredString {
         match self {
             TaskStatus::NoStatus => self.to_string().black(),
-            TaskStatus::Todo => self.to_string().green(),
-            TaskStatus::Wip => self.to_string().red(),
-            TaskStatus::Week => self.to_string().red(),
-            TaskStatus::Month => self.to_string().red(),
-            TaskStatus::Review => self.to_string().yellow(),
+            TaskStatus::Status(key) => match key.as_str() {
+                "todo" => self.to_string().green(),
+                "review" => self.to_string().yellow(),
+                _ => self.to_string().red(),
+            },
         }
     }
 }
 
 impl std::fmt::Display for TaskStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            Self::Todo => "@todo",
-            Self::Wip => "@wip",
-            Self::Review => "@review",
-            Self::NoStatus => "@noStatus",
-            Self::Week => "@week",
-            Self::Month => "@month",
-        };
-        s.fmt(f)
+        match self {
+            Self::NoStatus => write!(f, "@noStatus"),
+            Self::Status(key) => write!(f, "@{}", key),
+        }
     }
 }
+
 impl std::str::FromStr for TaskStatus {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "@todo" => Ok(Self::Todo),
-            "@wip" => Ok(Self::Wip),
-            "@review" => Ok(Self::Review),
-            "@noStatus" => Ok(Self::NoStatus),
-            "@week" => Ok(Self::Week),
-            "@month" => Ok(Self::Month),
-            _ => Err(format!("Unknown status: {s}")),
+        if s == "@noStatus" || s == "NoStatus" {
+            Ok(Self::NoStatus)
+        } else if let Some(key) = s.strip_prefix('@') {
+            Ok(Self::Status(key.to_string()))
+        } else {
+            Err(format!("Not a status token: {s}"))
         }
     }
 }
@@ -230,18 +250,32 @@ pub struct Task {
     pub line: Option<u32>,
 }
 impl Task {
-    pub fn re_any() -> Regex {
-        // TODO: regex duplicated here.. not very DRY
-        Regex::new(r"(#x[A-Za-z0-9]{1,})|(@[d,s,b,v][0-9]{8})|@todo|@wip|@review|@week|@month")
-            .unwrap()
+    /// Builds a regex that matches any line worth parsing as a task: a context
+    /// token (`#x…`), a date token (`@d20260407` style), or one of the declared
+    /// status keys.
+    pub fn re_any(statuses: &[String]) -> Regex {
+        let mut parts = vec![
+            r"#x[A-Za-z0-9]{1,}".to_string(),
+            r"@[d,s,b,v][0-9]{8}".to_string(),
+        ];
+        for key in statuses {
+            parts.push(format!("@{}", key));
+        }
+        Regex::new(&parts.join("|")).unwrap()
     }
 
-    pub fn from(task: &str, project: &str, file_path: Option<String>, line: Option<u32>) -> Task {
-        let status = TaskStatus::classify(task);
+    pub fn from(
+        task: &str,
+        project: &str,
+        file_path: Option<String>,
+        line: Option<u32>,
+        statuses: &[String],
+    ) -> Task {
+        let status = TaskStatus::classify(task, statuses);
         let contexts = TaskContext::extract_contexts(task);
         let dates = TaskDates::extract_dates(task);
         let description = TaskDates::remove_date(&TaskContext::remove_context_string(
-            &TaskStatus::remove_status_str(&task),
+            &TaskStatus::remove_status_str(task, statuses),
         ));
 
         Task {

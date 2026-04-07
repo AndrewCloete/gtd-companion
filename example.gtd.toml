@@ -1,0 +1,21 @@
+# Copy this file to ~/.gtd.toml and adjust the values to match your setup.
+
+default_dirs = [
+  "/Users/you/notes/Projects",
+  "/Users/you/notes/Areas",
+]
+
+inbox_path = "/Users/you/notes/Inbox.md"
+
+ignore_files = [
+  "00-MOC.md",
+  "README.md",
+  "templates.md",
+]
+
+default_not_context = ["#xSomeone"]
+
+statuses = ["todo", "wip", "review", "week", "month"]
+
+[server]
+host = "http://localhost:3000"
