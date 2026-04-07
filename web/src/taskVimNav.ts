@@ -7,13 +7,31 @@ export function getLeftPaneNavRows(pane: HTMLElement | null): HTMLElement[] {
   return Array.from(pane.querySelectorAll<HTMLElement>(TASK_NAV_ROW_SELECTOR));
 }
 
-export function applyTaskNavRowFocus(pane: HTMLElement | null, focusIndex: number): void {
-  const rows = getLeftPaneNavRows(pane);
-  rows.forEach((el, i) => {
-    el.classList.toggle("TaskNavFocused", i === focusIndex && focusIndex >= 0);
+export function applyDualPaneTaskNavFocus(
+  leftPane: HTMLElement | null,
+  rightPane: HTMLElement | null,
+  activeSide: "left" | "right",
+  leftIndex: number,
+  rightIndex: number
+): void {
+  const leftRows = getLeftPaneNavRows(leftPane);
+  const rightRows = getLeftPaneNavRows(rightPane);
+  leftRows.forEach((el, i) => {
+    el.classList.toggle(
+      "TaskNavFocused",
+      activeSide === "left" && i === leftIndex && leftIndex >= 0
+    );
   });
-  if (focusIndex >= 0 && focusIndex < rows.length) {
-    rows[focusIndex].scrollIntoView({ block: "nearest", behavior: "smooth" });
+  rightRows.forEach((el, i) => {
+    el.classList.toggle(
+      "TaskNavFocused",
+      activeSide === "right" && i === rightIndex && rightIndex >= 0
+    );
+  });
+  const rows = activeSide === "left" ? leftRows : rightRows;
+  const idx = activeSide === "left" ? leftIndex : rightIndex;
+  if (idx >= 0 && idx < rows.length) {
+    rows[idx].scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
 }
 

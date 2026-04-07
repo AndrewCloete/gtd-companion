@@ -23,7 +23,7 @@ import env from "./config.json";
 import * as m from "./model";
 import * as vm from "./viewmodel";
 import {
-  applyTaskNavRowFocus,
+  applyDualPaneTaskNavFocus,
   collectSearchMatchIndices,
   getLeftPaneNavRows,
   copyNavRowToClipboard,
@@ -533,6 +533,7 @@ function App() {
   const sectionDropdownRef = useRef<HTMLDivElement>(null);
   const tagDropdownRef = useRef<HTMLDivElement>(null);
   const leftPaneRef = useRef<HTMLDivElement>(null);
+  const rightPaneRef = useRef<HTMLDivElement>(null);
   const sectionDragSourceRef = useRef<string | null>(null);
   const tagDragSourceRef = useRef<string | null>(null);
   let [tagOrder, setTagOrder] = useState<string[]>(() => loadTagLayoutV1().order);
@@ -544,7 +545,9 @@ function App() {
     () => loadTagLayoutV1().isolate ?? null
   );
 
-  const [taskNavFocusIndex, setTaskNavFocusIndex] = useState(-1);
+  const [taskPaneSide, setTaskPaneSide] = useState<"left" | "right">("left");
+  const [leftTaskNavFocusIndex, setLeftTaskNavFocusIndex] = useState(-1);
+  const [rightTaskNavFocusIndex, setRightTaskNavFocusIndex] = useState(-1);
   /** `null` = not typing a /search; `""` = waiting for first character */
   const [taskNavSearchBuffer, setTaskNavSearchBuffer] = useState<string | null>(
     null
@@ -684,8 +687,19 @@ function App() {
   const contextFilter = useAppSelector((state) => state.taskFilter.context);
 
   useLayoutEffect(() => {
-    applyTaskNavRowFocus(leftPaneRef.current, taskNavFocusIndex);
-  }, [taskNavFocusIndex, gtdTasks]);
+    applyDualPaneTaskNavFocus(
+      leftPaneRef.current,
+      rightPaneRef.current,
+      taskPaneSide,
+      leftTaskNavFocusIndex,
+      rightTaskNavFocusIndex
+    );
+  }, [
+    taskPaneSide,
+    leftTaskNavFocusIndex,
+    rightTaskNavFocusIndex,
+    gtdTasks,
+  ]);
 
   useEffect(() => {
     function vimNavKeydown(e: KeyboardEvent) {
@@ -729,7 +743,8 @@ function App() {
           setTaskNavSearchMatches(matches);
           setTaskNavSearchMatchI(0);
           if (matches.length > 0) {
-            setTaskNavFocusIndex(matches[0]);
+            setTaskPaneSide("left");
+            setLeftTaskNavFocusIndex(matches[0]);
           }
           return;
         }
@@ -756,25 +771,51 @@ function App() {
         const nextI =
           (taskNavSearchMatchI + 1) % taskNavSearchMatches.length;
         setTaskNavSearchMatchI(nextI);
-        setTaskNavFocusIndex(taskNavSearchMatches[nextI]);
+        setTaskPaneSide("left");
+        setLeftTaskNavFocusIndex(taskNavSearchMatches[nextI]);
+        return;
+      }
+
+      if (e.key === "h" && taskPaneSide === "right") {
+        e.preventDefault();
+        setTaskPaneSide("left");
+        return;
+      }
+
+      if (e.key === "l" && taskPaneSide === "left") {
+        e.preventDefault();
+        const rightRows = getLeftPaneNavRows(rightPaneRef.current);
+        if (rightRows.length === 0) {
+          return;
+        }
+        setTaskPaneSide("right");
+        setRightTaskNavFocusIndex((i) => (i < 0 ? 0 : i));
         return;
       }
 
       if (e.key === "j") {
         e.preventDefault();
-        const rows = getLeftPaneNavRows(leftPaneRef.current);
+        const pane =
+          taskPaneSide === "left" ? leftPaneRef.current : rightPaneRef.current;
+        const rows = getLeftPaneNavRows(pane);
         if (rows.length === 0) {
           return;
         }
-        setTaskNavFocusIndex((i) =>
-          i < 0 ? 0 : Math.min(i + 1, rows.length - 1)
-        );
+        const setIdx =
+          taskPaneSide === "left"
+            ? setLeftTaskNavFocusIndex
+            : setRightTaskNavFocusIndex;
+        setIdx((i) => (i < 0 ? 0 : Math.min(i + 1, rows.length - 1)));
         return;
       }
 
       if (e.key === "k") {
         e.preventDefault();
-        setTaskNavFocusIndex((i) => (i <= 0 ? 0 : i - 1));
+        const setIdx =
+          taskPaneSide === "left"
+            ? setLeftTaskNavFocusIndex
+            : setRightTaskNavFocusIndex;
+        setIdx((i) => (i <= 0 ? 0 : i - 1));
         return;
       }
 
@@ -782,7 +823,7 @@ function App() {
         if (e.repeat) {
           return;
         }
-        const highlighted = leftPaneRef.current?.querySelector<HTMLElement>(
+        const highlighted = document.querySelector<HTMLElement>(
           ".TaskNavFocused[data-task-nav-row]"
         );
         if (highlighted) {
@@ -794,7 +835,8 @@ function App() {
       }
 
       if (e.key === "Escape") {
-        setTaskNavFocusIndex(-1);
+        setLeftTaskNavFocusIndex(-1);
+        setRightTaskNavFocusIndex(-1);
         setTaskNavSearchMatches([]);
         setTaskNavSearchMatchI(0);
         return;
@@ -814,7 +856,7 @@ function App() {
     taskNavSearchBuffer,
     taskNavSearchMatches,
     taskNavSearchMatchI,
-    taskNavFocusIndex,
+    taskPaneSide,
     loadTasksCb,
   ]);
 
@@ -954,13 +996,23 @@ function App() {
   );
 
   useLayoutEffect(() => {
-    const rows = getLeftPaneNavRows(leftPaneRef.current);
-    setTaskNavFocusIndex((i) => {
-      if (rows.length === 0) {
+    const leftRows = getLeftPaneNavRows(leftPaneRef.current);
+    setLeftTaskNavFocusIndex((i) => {
+      if (leftRows.length === 0) {
         return -1;
       }
-      if (i >= rows.length) {
-        return rows.length - 1;
+      if (i >= leftRows.length) {
+        return leftRows.length - 1;
+      }
+      return i;
+    });
+    const rightRows = getLeftPaneNavRows(rightPaneRef.current);
+    setRightTaskNavFocusIndex((i) => {
+      if (rightRows.length === 0) {
+        return -1;
+      }
+      if (i >= rightRows.length) {
+        return rightRows.length - 1;
       }
       return i;
     });
@@ -973,6 +1025,7 @@ function App() {
     sectionIsolated,
     tagHidden,
     tagIsolated,
+    filteredVisibleTasks,
   ]);
 
   const { has_date } = m.Tasks.dateSplit(filteredVisibleTasks);
@@ -1167,7 +1220,7 @@ function App() {
             ) : null
           )}
         </div>
-        <div className="RightPane">
+        <div className="RightPane" ref={rightPaneRef}>
           <WeekBlocks week_blocks={week_blocks} />
         </div>
       </div>
