@@ -13,6 +13,7 @@ import {
   type ChangeEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -21,6 +22,12 @@ import {
 import env from "./config.json";
 import * as m from "./model";
 import * as vm from "./viewmodel";
+import {
+  applyTaskNavRowFocus,
+  collectSearchMatchIndices,
+  getLeftPaneNavRows,
+  copyNavRowToClipboard,
+} from "./taskVimNav";
 
 const SECTION_LAYOUT_STORAGE_KEY = "gtd.sectionLayout.v1";
 
@@ -165,10 +172,18 @@ function get_url() {
   return `${env.scheme}://${window.location.hostname}:${env.backend_port}`;
 }
 
-function open_in_editor(task: m.Task) {
+function copy_to_clipboard(task: m.Task) {
   if (!task.data.file_path || !task.data.line) return;
-  const scheme = (env as any).editor_scheme ?? "vscode";
-  window.location.href = `${scheme}://file/${task.data.file_path}:${task.data.line}`;
+  navigator.clipboard.writeText(`${task.data.file_path}:${task.data.line}`).catch(() => {});
+}
+
+function taskNavRowAttrs(task: m.Task) {
+  return {
+    "data-task-nav-row": "",
+    "data-nav-file": task.data.file_path ?? "",
+    "data-nav-line": task.data.line != null ? String(task.data.line) : "",
+    "data-nav-search": `${task.cleanProjext()} ${task.cleanDescription()}`.toLowerCase(),
+  };
 }
 
 async function getTasks(): Promise<m.Tasks> {
@@ -210,12 +225,12 @@ function ProjectBlock(props: { project: string; tasks: m.Task[] }) {
       <div>
         {props.tasks.map((task) => {
           return (
-            <div key={task.key()}>
+            <div key={task.key()} className="TaskNavRow" {...taskNavRowAttrs(task)}>
               <div
                 id={task.cleanDescription()}
                 key={task.key()}
                 className={`Description TaskType_${task.classify()}`}
-                onClick={(e) => open_in_editor(task)}
+                onClick={() => copy_to_clipboard(task)}
               >
                 {task.cleanDescription()}
               </div>
@@ -250,7 +265,7 @@ function ContextBlock(props: { context: string; tasks: m.Task[] }) {
       <div>
         {props.tasks.map((task) => {
           return (
-            <div key={task.key()}>
+            <div key={task.key()} className="TaskNavRow" {...taskNavRowAttrs(task)}>
               <span
                 className="Contexts"
                 onClick={() => dispatch(setProject(task.cleanProjext()))}
@@ -261,7 +276,7 @@ function ContextBlock(props: { context: string; tasks: m.Task[] }) {
                 id={task.cleanDescription()}
                 key={task.key()}
                 className={`Description TaskType_${task.classify()}`}
-                onClick={(e) => open_in_editor(task)}
+                onClick={() => copy_to_clipboard(task)}
               >
                 {task.cleanDescription()}
               </div>
@@ -417,7 +432,7 @@ function NoScheduleBlock(props: {
     const diffInDays = date?.diffInDays(getToday());
 
     return (
-      <div className="TaskLine">
+      <div className="TaskLine TaskNavRow" {...taskNavRowAttrs(props.task)}>
         <div
           className={`TaskDate NoScheduleBlockDate ${diffInDaysClass(diffInDays)}`}
         >
@@ -435,7 +450,7 @@ function NoScheduleBlock(props: {
         </div>
         <div
           className={`Description Status_${props.task.data.status} TaskType_${props.task.classify()}`}
-          onClick={() => open_in_editor(props.task)}
+          onClick={() => copy_to_clipboard(props.task)}
         >
           {props.task.cleanDescription()}
         </div>
@@ -517,6 +532,7 @@ function App() {
   let [tagDropdownOpen, setTagDropdownOpen] = useState(false);
   const sectionDropdownRef = useRef<HTMLDivElement>(null);
   const tagDropdownRef = useRef<HTMLDivElement>(null);
+  const leftPaneRef = useRef<HTMLDivElement>(null);
   const sectionDragSourceRef = useRef<string | null>(null);
   const tagDragSourceRef = useRef<string | null>(null);
   let [tagOrder, setTagOrder] = useState<string[]>(() => loadTagLayoutV1().order);
@@ -527,6 +543,16 @@ function App() {
   let [tagIsolated, setTagIsolated] = useState<string | null>(
     () => loadTagLayoutV1().isolate ?? null
   );
+
+  const [taskNavFocusIndex, setTaskNavFocusIndex] = useState(-1);
+  /** `null` = not typing a /search; `""` = waiting for first character */
+  const [taskNavSearchBuffer, setTaskNavSearchBuffer] = useState<string | null>(
+    null
+  );
+  const [taskNavSearchMatches, setTaskNavSearchMatches] = useState<number[]>(
+    []
+  );
+  const [taskNavSearchMatchI, setTaskNavSearchMatchI] = useState(0);
 
   function flipGroupBy() {
     setGroupBy((g) => (g === "Project" ? "Tags" : "Project"));
@@ -590,10 +616,10 @@ function App() {
     });
   }
 
-  async function loadTasks() {
+  const loadTasksCb = useCallback(async () => {
     const networkTasks = await getTasks();
     setTasks(networkTasks.split_with_due());
-  }
+  }, []);
 
   function connect() {
     const WS_URL = `${env.ws_scheme}://${window.location.hostname}:${env.backend_port}/ws`;
@@ -604,7 +630,7 @@ function App() {
 
     ws.addEventListener("message", (event) => {
       console.log("Message from server ", event.data);
-      loadTasks();
+      loadTasksCb();
     });
 
     ws.addEventListener("close", (event) => {
@@ -624,10 +650,10 @@ function App() {
   }
 
   useEffect(() => {
-    loadTasks();
+    loadTasksCb();
     connect();
     return;
-  }, []);
+  }, [loadTasksCb]);
 
   // Sets the date back to today every 1 minute to ensure invisible tasks are always surfaced
   useEffect(() => {
@@ -657,18 +683,140 @@ function App() {
   const projectFilter = useAppSelector((state) => state.taskFilter.project);
   const contextFilter = useAppSelector((state) => state.taskFilter.context);
 
-  const handleKeyPress = useCallback((event: any) => {
-    if (event.key == "r") {
-      loadTasks();
-    }
-  }, []);
+  useLayoutEffect(() => {
+    applyTaskNavRowFocus(leftPaneRef.current, taskNavFocusIndex);
+  }, [taskNavFocusIndex, gtdTasks]);
 
   useEffect(() => {
-    document.addEventListener("keydown", handleKeyPress);
-    return () => {
-      document.removeEventListener("keydown", handleKeyPress);
-    };
-  }, [handleKeyPress]);
+    function vimNavKeydown(e: KeyboardEvent) {
+      const t = e.target as HTMLElement | null;
+      if (!t) {
+        return;
+      }
+      const tag = t.tagName;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        t.isContentEditable
+      ) {
+        return;
+      }
+
+      if (sectionDropdownOpen || tagDropdownOpen) {
+        return;
+      }
+
+      if (e.metaKey || e.ctrlKey || e.altKey) {
+        return;
+      }
+
+      if (taskNavSearchBuffer !== null) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setTaskNavSearchBuffer(null);
+          return;
+        }
+        if (e.key === "Enter") {
+          if (e.repeat) {
+            return;
+          }
+          e.preventDefault();
+          const pattern = taskNavSearchBuffer.trim().toLowerCase();
+          setTaskNavSearchBuffer(null);
+          const rows = getLeftPaneNavRows(leftPaneRef.current);
+          const matches = collectSearchMatchIndices(rows, pattern);
+          setTaskNavSearchMatches(matches);
+          setTaskNavSearchMatchI(0);
+          if (matches.length > 0) {
+            setTaskNavFocusIndex(matches[0]);
+          }
+          return;
+        }
+        if (e.key === "Backspace") {
+          e.preventDefault();
+          setTaskNavSearchBuffer((b) => (b!.length <= 1 ? "" : b!.slice(0, -1)));
+          return;
+        }
+        if (e.key.length === 1) {
+          e.preventDefault();
+          setTaskNavSearchBuffer((b) => (b ?? "") + e.key);
+        }
+        return;
+      }
+
+      if (e.key === "/" && !e.shiftKey) {
+        e.preventDefault();
+        setTaskNavSearchBuffer("");
+        return;
+      }
+
+      if (e.key === "n" && taskNavSearchMatches.length > 0) {
+        e.preventDefault();
+        const nextI =
+          (taskNavSearchMatchI + 1) % taskNavSearchMatches.length;
+        setTaskNavSearchMatchI(nextI);
+        setTaskNavFocusIndex(taskNavSearchMatches[nextI]);
+        return;
+      }
+
+      if (e.key === "j") {
+        e.preventDefault();
+        const rows = getLeftPaneNavRows(leftPaneRef.current);
+        if (rows.length === 0) {
+          return;
+        }
+        setTaskNavFocusIndex((i) =>
+          i < 0 ? 0 : Math.min(i + 1, rows.length - 1)
+        );
+        return;
+      }
+
+      if (e.key === "k") {
+        e.preventDefault();
+        setTaskNavFocusIndex((i) => (i <= 0 ? 0 : i - 1));
+        return;
+      }
+
+      if (e.key === "Enter") {
+        if (e.repeat) {
+          return;
+        }
+        const highlighted = leftPaneRef.current?.querySelector<HTMLElement>(
+          ".TaskNavFocused[data-task-nav-row]"
+        );
+        if (highlighted) {
+          e.preventDefault();
+          e.stopPropagation();
+          copyNavRowToClipboard(highlighted);
+        }
+        return;
+      }
+
+      if (e.key === "Escape") {
+        setTaskNavFocusIndex(-1);
+        setTaskNavSearchMatches([]);
+        setTaskNavSearchMatchI(0);
+        return;
+      }
+
+      if (e.key === "r" || e.key === "R") {
+        e.preventDefault();
+        loadTasksCb();
+      }
+    }
+
+    window.addEventListener("keydown", vimNavKeydown, true);
+    return () => window.removeEventListener("keydown", vimNavKeydown, true);
+  }, [
+    sectionDropdownOpen,
+    tagDropdownOpen,
+    taskNavSearchBuffer,
+    taskNavSearchMatches,
+    taskNavSearchMatchI,
+    taskNavFocusIndex,
+    loadTasksCb,
+  ]);
 
   const discoveryStatuses = useMemo(() => {
     const tasks = gtdTasks
@@ -804,6 +952,28 @@ function App() {
     () => _.groupBy((t: m.Task) => t.data.status)(leftPaneTasks),
     [leftPaneTasks]
   );
+
+  useLayoutEffect(() => {
+    const rows = getLeftPaneNavRows(leftPaneRef.current);
+    setTaskNavFocusIndex((i) => {
+      if (rows.length === 0) {
+        return -1;
+      }
+      if (i >= rows.length) {
+        return rows.length - 1;
+      }
+      return i;
+    });
+  }, [
+    leftPaneTasks,
+    sectionDescriptors,
+    groupBy,
+    tagDescriptors,
+    sectionHidden,
+    sectionIsolated,
+    tagHidden,
+    tagIsolated,
+  ]);
 
   const { has_date } = m.Tasks.dateSplit(filteredVisibleTasks);
   const withMeta = m.Tasks.addMetaTasks(has_date);
@@ -980,7 +1150,7 @@ function App() {
       </div>
 
       <div className="MainContent">
-        <div className="LeftPane">
+        <div className="LeftPane" ref={leftPaneRef}>
           {sectionDescriptors.map(({ id, label }) =>
             show(id) ? (
               <div key={id} className="LeftPaneSection">
@@ -1001,6 +1171,13 @@ function App() {
           <WeekBlocks week_blocks={week_blocks} />
         </div>
       </div>
+
+      {taskNavSearchBuffer !== null ? (
+        <div className="VimSearchCmd" role="status" aria-live="polite">
+          /{taskNavSearchBuffer}
+          <span className="VimSearchCursor">▍</span>
+        </div>
+      ) : null}
     </div>
   );
 }

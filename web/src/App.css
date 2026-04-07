@@ -55,6 +55,36 @@
   padding-bottom: 1.1rem;
 }
 
+.TaskNavFocused {
+  outline: 1px solid var(--info);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.VimSearchCmd {
+  position: fixed;
+  left: 12px;
+  bottom: 10px;
+  z-index: 200;
+  padding: 4px 10px;
+  font-family: monospace;
+  font-size: 0.85em;
+  color: var(--text-primary);
+  background-color: var(--darkest);
+  border: 1px solid var(--info);
+  border-radius: 3px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+.VimSearchCursor {
+  color: var(--info);
+  animation: VimSearchBlink 1s step-end infinite;
+}
+@keyframes VimSearchBlink {
+  50% {
+    opacity: 0;
+  }
+}
+
 .RightPane {
   flex: 1;
   min-width: 0;
