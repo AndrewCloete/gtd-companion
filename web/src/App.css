@@ -55,7 +55,7 @@
   padding-bottom: 1.1rem;
 }
 
-/* LHS: light row rhythm; dotted rule only between project/tag groups (not NoSchedule rows). */
+/* LHS: light row rhythm; dotted rule only between project/tag groups. */
 .LeftPane .TaskNavRow {
   padding-top: 2px;
   padding-bottom: 2px;
@@ -185,6 +185,54 @@ button:active {
       color: var(--success);
     }
   }
+
+  .DayBlockTasks {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .DayBlockTaskRow.TaskLine {
+    align-items: baseline;
+    padding: 4px 6px 6px 0;
+    border-bottom: 1px dotted var(--border);
+  }
+
+  .DayBlockTaskRow.TaskLine:last-child {
+    border-bottom: none;
+  }
+
+  .DayBlockTaskBody {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem 0.65rem;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .DayBlockTaskRow .Description {
+    flex: 0 1 auto;
+    width: auto;
+    min-width: 0;
+    max-width: 100%;
+    display: inline;
+  }
+
+  .DayBlockTaskBody .TaskStatusLabel,
+  .DayBlockTaskBody .Contexts {
+    flex: 0 0 auto;
+    font-size: 0.82em;
+  }
+
+  .DayBlockTaskBody .Contexts {
+    color: var(--success);
+  }
+
+  .TaskStatusLabel {
+    font-style: italic;
+    text-transform: lowercase;
+    color: var(--text-secondary);
+  }
 }
 .DayDiff_NONE {
 }
@@ -235,21 +283,6 @@ button:active {
   }
 }
 
-.NoScheduleBlockDate {
-  .Dow {
-    width: 2em;
-    display: inline-block;
-  }
-  .Diff {
-    width: 2em;
-    display: inline-block;
-  }
-  .Date {
-    width: 4em;
-    display: inline-block;
-  }
-}
-
 .WeekBlock {
   margin: 10px;
   margin-top: 15px;
@@ -289,10 +322,6 @@ button:active {
   margin: 10px;
   padding-top: 5px;
   padding-bottom: 5px;
-}
-
-.NoScheduleBlock {
-  padding: 10px;
 }
 
 /* ── Toolbar ─────────────────────────────────────────────────────────────── */

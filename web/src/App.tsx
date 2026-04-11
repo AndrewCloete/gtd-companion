@@ -178,11 +178,16 @@ function copy_to_clipboard(task: m.Task) {
 }
 
 function taskNavRowAttrs(task: m.Task) {
+  const tags = task.cleanContexts().join(" ");
   return {
     "data-task-nav-row": "",
     "data-nav-file": task.data.file_path ?? "",
     "data-nav-line": task.data.line != null ? String(task.data.line) : "",
-    "data-nav-search": `${task.cleanProjext()} ${task.cleanDescription()}`.toLowerCase(),
+    "data-nav-search":
+      `${task.cleanProjext()} ${task.cleanDescription()} ${tags} ${task.data.status}`
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim(),
   };
 }
 
@@ -372,6 +377,45 @@ function TasksByProject(props: { tasks: m.Task[] }) {
   );
 }
 
+function DayBlockTaskList(props: { tasks: m.Task[] }) {
+  const dispatch = useAppDispatch();
+  return (
+    <div className="DayBlockTasks">
+      {props.tasks.map((task) => (
+        <div
+          key={task.key()}
+          className="TaskLine TaskNavRow DayBlockTaskRow"
+          {...taskNavRowAttrs(task)}
+        >
+          <div className="DayBlockTaskBody">
+            <div
+              className={`Description Status_${task.data.status} TaskType_${task.classify()}`}
+              onClick={() => copy_to_clipboard(task)}
+            >
+              {task.cleanDescription()}
+            </div>
+            <span
+              className={`TaskStatusLabel Status_${task.data.status}`}
+              title="Status"
+            >
+              {task.data.status}
+            </span>
+            {task.cleanContexts().map((c) => (
+              <span
+                className="Contexts"
+                key={c}
+                onClick={() => dispatch(setContext(c))}
+              >
+                {c}
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function DayBlock(props: { block: vm.DayBlock }) {
   const date = props.block.date();
   const diffInDays = date?.diffInDays(getToday());
@@ -384,7 +428,7 @@ function DayBlock(props: { block: vm.DayBlock }) {
         <div className="DateDiff">{diffInDays}</div>
         <div></div>
       </div>
-      <TasksByProject tasks={props.block.tasks}></TasksByProject>
+      <DayBlockTaskList tasks={props.block.tasks} />
     </div>
   );
 }
@@ -425,53 +469,15 @@ function NoScheduleBlock(props: {
   tagDescriptors: { id: string }[];
   tagVisible: (id: string) => boolean;
 }) {
-  const { has_date, no_date } = m.Tasks.dateSplit(props.tasks);
-  function NoScheduleTask(props: { task: m.Task }) {
-    const dispatch = useAppDispatch();
-    const date = props.task.dates.priority();
-    const diffInDays = date?.diffInDays(getToday());
-
-    return (
-      <div className="TaskLine TaskNavRow" {...taskNavRowAttrs(props.task)}>
-        <div
-          className={`TaskDate NoScheduleBlockDate ${diffInDaysClass(diffInDays)}`}
-        >
-          <span className="Dow">{date?.fmt("EEEEEE")}</span>
-          <span className="Date">{date?.fmt("dd MMM")}</span>
-
-          <span className="Diff">
-            {diffInDays ? <span>({diffInDays})</span> : undefined}
-          </span>
-        </div>
-        <div className="Project">
-          <span onClick={() => dispatch(setProject(props.task.cleanProjext()))}>
-            {props.task.cleanProjext()}
-          </span>
-        </div>
-        <div
-          className={`Description Status_${props.task.data.status} TaskType_${props.task.classify()}`}
-          onClick={() => copy_to_clipboard(props.task)}
-        >
-          {props.task.cleanDescription()}
-        </div>
-      </div>
-    );
-  }
+  const { no_date } = m.Tasks.dateSplit(props.tasks);
 
   return (
-    <div>
-      <div className="NoScheduleBlock">
-        {has_date.map((task) => {
-          return <NoScheduleTask key={task.key()} task={task}></NoScheduleTask>;
-        })}
-      </div>
-      <TasksByGroup
-        tasks={no_date}
-        groupby={props.groupby}
-        tagDescriptors={props.tagDescriptors}
-        tagVisible={props.tagVisible}
-      ></TasksByGroup>
-    </div>
+    <TasksByGroup
+      tasks={no_date}
+      groupby={props.groupby}
+      tagDescriptors={props.tagDescriptors}
+      tagVisible={props.tagVisible}
+    />
   );
 }
 function DatePicker(props: {
