@@ -221,13 +221,13 @@ function diffInDaysClass(diffInDays: number | undefined) {
 function ProjectBlock(props: { project: string; tasks: m.Task[] }) {
   const dispatch = useAppDispatch();
   return (
-    <div className="TaskLine">
-      <div className="Project">
+    <div className="TaskLine LeftPaneTaskGroup">
+      <div className="Project LeftPaneTaskGroupHeading">
         <span onClick={() => dispatch(setProject(props.project))}>
           {props.project}
         </span>
       </div>
-      <div>
+      <div className="LeftPaneTaskGroupTasks">
         {props.tasks.map((task) => {
           return (
             <div key={task.key()} className="TaskNavRow" {...taskNavRowAttrs(task)}>
@@ -261,13 +261,13 @@ function ProjectBlock(props: { project: string; tasks: m.Task[] }) {
 function ContextBlock(props: { context: string; tasks: m.Task[] }) {
   const dispatch = useAppDispatch();
   return (
-    <div className="TaskLine">
-      <div className="Project">
+    <div className="TaskLine LeftPaneTaskGroup">
+      <div className="Project LeftPaneTaskGroupHeading">
         <span onClick={() => dispatch(setContext(props.context))}>
           {props.context}
         </span>
       </div>
-      <div>
+      <div className="LeftPaneTaskGroupTasks">
         {props.tasks.map((task) => {
           return (
             <div key={task.key()} className="TaskNavRow" {...taskNavRowAttrs(task)}>

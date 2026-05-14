@@ -60,6 +60,42 @@
   padding-top: 2px;
   padding-bottom: 2px;
 }
+
+/* LHS project/tag groups: heading row on top, task lines below, all left-aligned. */
+.LeftPane .LeftPaneTaskGroup {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.15rem;
+}
+.LeftPane .LeftPaneTaskGroup .LeftPaneTaskGroupHeading.Project {
+  text-align: left;
+  width: 100%;
+  max-width: none;
+  flex: none;
+  margin-right: 0;
+  padding: 2px 15px 0 15px;
+  box-sizing: border-box;
+}
+.LeftPane .LeftPaneTaskGroup .LeftPaneTaskGroupTasks {
+  min-width: 0;
+  width: 100%;
+  padding: 0 15px;
+  box-sizing: border-box;
+}
+.LeftPane .LeftPaneTaskGroup .TaskNavRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 0.35rem 0.65rem;
+  text-align: left;
+}
+.LeftPane .LeftPaneTaskGroup .Description {
+  width: auto;
+  max-width: 100%;
+  text-align: left;
+}
+
 .LeftPane .TaskLine:not(.TaskNavRow) + .TaskLine:not(.TaskNavRow) {
   margin-top: 0.2rem;
   padding-top: 0.28rem;
