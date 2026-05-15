@@ -1187,7 +1187,8 @@ function App() {
 
   const { has_date } = m.Tasks.dateSplit(filteredVisibleTasks);
   const withMeta = m.Tasks.addMetaTasks(has_date);
-  const week_blocks = vm.WeekBlock.fromTasks(withMeta);
+  /* RHS: `getToday()` anchors the “from this week forward” range (no missing weeks). */
+  const week_blocks = vm.WeekBlock.fromTasks(withMeta, getToday());
 
   const show = (id: string) => effectiveSectionVisible(id);
 

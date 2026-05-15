@@ -113,6 +113,13 @@ export class TaskDate {
     return { monday, sunday };
   }
 
+  /** Monday–Sunday span for the calendar week that contains `d` (local time). */
+  static weekBookendsForDate(d: Date): WeekBookends | undefined {
+    const ymd = TaskDate.toYYYYMMDD(d);
+    const td = new TaskDate(ymd, "DUE");
+    return td.weekBookends();
+  }
+
   dow(): number | undefined {
     return this.date?.getDay();
   }
