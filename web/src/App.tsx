@@ -29,6 +29,125 @@ import {
   copyNavRowToClipboard,
 } from "./taskVimNav";
 
+function TipsShortcutsModal(props: { onClose: () => void }) {
+  return (
+    <div
+      className="TipsModalBackdrop"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          props.onClose();
+        }
+      }}
+    >
+      <div
+        className="TipsModal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tips-modal-title"
+      >
+        <div className="TipsModalHeader">
+          <h2 id="tips-modal-title">Shortcuts & tips</h2>
+          <button
+            type="button"
+            className="TipsModalClose"
+            onClick={props.onClose}
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+
+        <ul className="TipsModalList">
+          <li>
+            <span className="TipsModalKeys">
+              <kbd>?</kbd>
+              <span className="TipsKeySep">·</span>
+              <kbd className="TipsKeyWide">Shift</kbd>
+              <span>+</span>
+              <kbd>/</kbd>
+            </span>
+            <span className="TipsModalDesc">
+              Open this panel (<kbd>?</kbd> again closes). Esc closes.
+            </span>
+          </li>
+          <li>
+            <span className="TipsModalKeys">
+              <kbd>/</kbd>
+            </span>
+            <span className="TipsModalDesc">
+              Search tasks in the left pane; Esc cancels typing.
+            </span>
+          </li>
+          <li>
+            <span className="TipsModalKeys">
+              <kbd>Enter</kbd>
+            </span>
+            <span className="TipsModalDesc">
+              Apply search while typing /pattern; when a row is highlighted,
+              copies <code className="TipsInlineCode">path:line</code> for that
+              task.
+            </span>
+          </li>
+          <li>
+            <span className="TipsModalKeys">
+              <kbd>n</kbd>
+            </span>
+            <span className="TipsModalDesc">
+              Jump to next match after a search.
+            </span>
+          </li>
+          <li>
+            <span className="TipsModalKeys">
+              <kbd>j</kbd> / <kbd>k</kbd>
+            </span>
+            <span className="TipsModalDesc">
+              Move highlight down / up in the active pane.
+            </span>
+          </li>
+          <li>
+            <span className="TipsModalKeys">
+              <kbd>h</kbd> / <kbd>l</kbd>
+            </span>
+            <span className="TipsModalDesc">
+              Focus left pane / schedule (right pane); <kbd>l</kbd> only when the
+              schedule has tasks.
+            </span>
+          </li>
+          <li>
+            <span className="TipsModalKeys">
+              <kbd>Esc</kbd>
+            </span>
+            <span className="TipsModalDesc">
+              Clear task highlight and search-match ring (panel closed).
+            </span>
+          </li>
+          <li>
+            <span className="TipsModalKeys">
+              <kbd>r</kbd>
+            </span>
+            <span className="TipsModalDesc">Reload tasks from the server.</span>
+          </li>
+          <li>
+            <span className="TipsModalKeys">click task</span>
+            <span className="TipsModalDesc">
+              Click a task description to copy{" "}
+              <code className="TipsInlineCode">path:line</code>.
+            </span>
+          </li>
+        </ul>
+
+        <div className="TipsModalFoot">
+          <span className="TipsModalFootLabel">Neovim</span>
+          <span>
+            After copying a location, use <kbd>gk</kbd> in Neovim to jump to that
+            task.
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const SECTION_LAYOUT_STORAGE_KEY = "gtd.sectionLayout.v1";
 
 type SectionLayoutV1 = {
@@ -523,7 +642,7 @@ function App() {
   const dispatch = useAppDispatch();
   let [gtdTasks, setTasks] = useState<m.Tasks>(m.Tasks.empty());
   let [visibleDate, setVisibleDate] = useState<Date | undefined>(getToday());
-  let [groupBy, setGroupBy] = useState<TaskGroupBy>("Project");
+  let [groupBy, setGroupBy] = useState<TaskGroupBy>("Tags");
   let [sectionOrder, setSectionOrder] = useState<string[]>(
     () => loadSectionLayoutV1().order
   );
@@ -562,6 +681,7 @@ function App() {
     []
   );
   const [taskNavSearchMatchI, setTaskNavSearchMatchI] = useState(0);
+  const [tipsModalOpen, setTipsModalOpen] = useState(false);
 
   function flipGroupBy() {
     setGroupBy((g) => (g === "Project" ? "Tags" : "Project"));
@@ -727,6 +847,20 @@ function App() {
         return;
       }
 
+      if (tipsModalOpen) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setTipsModalOpen(false);
+          return;
+        }
+        if (e.key === "?") {
+          e.preventDefault();
+          setTipsModalOpen(false);
+          return;
+        }
+        return;
+      }
+
       if (e.metaKey || e.ctrlKey || e.altKey) {
         return;
       }
@@ -769,6 +903,12 @@ function App() {
       if (e.key === "/" && !e.shiftKey) {
         e.preventDefault();
         setTaskNavSearchBuffer("");
+        return;
+      }
+
+      if (e.key === "?" || (e.shiftKey && e.key === "/")) {
+        e.preventDefault();
+        setTipsModalOpen(true);
         return;
       }
 
@@ -864,7 +1004,18 @@ function App() {
     taskNavSearchMatchI,
     taskPaneSide,
     loadTasksCb,
+    tipsModalOpen,
   ]);
+
+  useEffect(() => {
+    if (!tipsModalOpen) {
+      return;
+    }
+    const closeBtn = document.querySelector<HTMLButtonElement>(
+      ".TipsModalClose"
+    );
+    closeBtn?.focus();
+  }, [tipsModalOpen]);
 
   const discoveryStatuses = useMemo(() => {
     const tasks = gtdTasks
@@ -1207,6 +1358,22 @@ function App() {
           )}
         </div>
       </div>
+
+      <button
+        type="button"
+        className="TipsCornerBtn"
+        onClick={() => setTipsModalOpen(true)}
+        title="Shortcuts & tips (?)"
+        aria-label="Shortcuts and keyboard tips"
+        aria-haspopup="dialog"
+        aria-expanded={tipsModalOpen}
+      >
+        ?
+      </button>
+
+      {tipsModalOpen ? (
+        <TipsShortcutsModal onClose={() => setTipsModalOpen(false)} />
+      ) : null}
 
       <div className="MainContent">
         <div className="LeftPane" ref={leftPaneRef}>
