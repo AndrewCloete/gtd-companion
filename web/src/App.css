@@ -75,6 +75,13 @@
   margin-right: 0;
   padding: 2px 15px 0 15px;
   box-sizing: border-box;
+  color: var(--success);
+  font-weight: bold;
+  font-style: normal;
+}
+.LeftPane .LeftPaneTaskGroup .TaskNavRow .Contexts {
+  color: var(--text-secondary);
+  font-weight: normal;
 }
 .LeftPane .LeftPaneTaskGroup .LeftPaneTaskGroupTasks {
   min-width: 0;
