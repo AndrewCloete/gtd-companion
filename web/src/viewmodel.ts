@@ -105,6 +105,19 @@ export class WeekBlock {
       }
     }
 
+    /** Overdue blocks: weeks strictly before the anchor week, sorted ascending. */
+    const overdueBlocks: WeekBlock[] = [];
+    for (const [ms, block] of byMonday) {
+      if (ms < startMs) {
+        overdueBlocks.push(block);
+      }
+    }
+    overdueBlocks.sort((a, b) => {
+      const aMs = a.weekBookends()!.monday.getTime();
+      const bMs = b.weekBookends()!.monday.getTime();
+      return aMs - bMs;
+    });
+
     /** Walk consecutive weeks [startMonday … endMs]; insert placeholders for gaps. */
     const filled: WeekBlock[] = [];
     for (
@@ -124,7 +137,7 @@ export class WeekBlock {
       }
     }
 
-    return filled;
+    return [...overdueBlocks, ...filled];
   }
 
   weekBookends(): m.WeekBookends | undefined {

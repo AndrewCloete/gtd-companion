@@ -174,6 +174,7 @@ fn main() {
     let config = ConfigFile::read();
     let args = Args::parse();
     let statuses = args.statuses();
+    println!("{:?}", statuses);
     let contexts = args.contexts();
     let ignore_files = config.ignore_files.unwrap_or(vec![]);
     let dirs = args
@@ -213,9 +214,18 @@ fn main() {
                 .filter(|(_, line)| LIST_ITEM_RE.is_match(line))
                 .collect();
 
-            let first_line = task_lines.first().map(|(_, l)| l.clone()).unwrap_or("".into());
+            let first_line = task_lines
+                .first()
+                .map(|(_, l)| l.clone())
+                .unwrap_or("".into());
             let gtd_task = if first_line.starts_with("- @gtd") {
-                Some(Task::from(&first_line, &file_name, None, None, &configured_statuses))
+                Some(Task::from(
+                    &first_line,
+                    &file_name,
+                    None,
+                    None,
+                    &configured_statuses,
+                ))
             } else {
                 None
             };
@@ -226,7 +236,13 @@ fn main() {
                     .iter()
                     .filter(|(_, l)| !l.starts_with("- @gtd"))
                     .map(|(line_num, l)| {
-                        let mut t = Task::from(&l, &file_name, Some(full_path.clone()), Some(*line_num), &configured_statuses);
+                        let mut t = Task::from(
+                            &l,
+                            &file_name,
+                            Some(full_path.clone()),
+                            Some(*line_num),
+                            &configured_statuses,
+                        );
                         if t.status == TaskStatus::NoStatus {
                             // Replace NoStatus with GTD task status
                             t.status = gt.status.clone();
@@ -263,7 +279,15 @@ fn main() {
                 task_lines
                     .iter()
                     .filter(|(_, line)| re.is_match(line))
-                    .map(|(line_num, l)| Task::from(&l, &file_name, Some(full_path.clone()), Some(*line_num), &configured_statuses))
+                    .map(|(line_num, l)| {
+                        Task::from(
+                            &l,
+                            &file_name,
+                            Some(full_path.clone()),
+                            Some(*line_num),
+                            &configured_statuses,
+                        )
+                    })
                     .filter(|task| !task.has_noflags())
                     .filter(|task| statuses.is_empty() || statuses.contains(&task.status))
                     .filter(|task| {
